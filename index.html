@@ -4,163 +4,19 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>Jogo da Memória Digital - Início</title>
-  <style>
-    :root{
-      --bg: #f6f8fa;
-      --card: #ffffff;
-      --accent: #0f1724;
-      --muted: #6b7280;
-      --primary: #0f62fe;
-      --radius: 14px;
-      --pad: 20px;
-      font-family: Inter, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-    }
 
-    html,body{
-      height:100%;
-      margin:0;
-      background:linear-gradient(180deg,#f8fbff 0%, var(--bg) 100%);
-      color:var(--accent);
-    }
-
-    .container{
-      min-height:100vh;
-      display:flex;
-      align-items:center;
-      justify-content:center;
-      padding:40px 20px;
-    }
-
-    .card {
-      width:100%;
-      max-width:980px;
-      background:var(--card);
-      border-radius:var(--radius);
-      box-shadow: 0 8px 30px rgba(15,23,36,0.06);
-      display:flex;
-      gap:24px;
-      padding:28px;
-      align-items:center;
-      flex-wrap:wrap;
-    }
-
-    .brand {
-      display:flex;
-      gap:18px;
-      align-items:center;
-      min-width:260px;
-      flex: 1 1 260px;
-    }
-
-    .logo {
-      width:92px;
-      height:92px;
-      display:flex;
-      align-items:center;
-      justify-content:center;
-      flex-shrink:0;
-    }
-
-    /* Simple 2x2 squares logo */
-    .logo svg { width:72px; height:72px; }
-
-    h1{
-      font-size:28px;
-      margin:0;
-      line-height:1.05;
-      letter-spacing: -0.02em;
-    }
-    p.lead{
-      margin:6px 0 0 0;
-      color:var(--muted);
-      font-size:14px;
-    }
-
-    .actions {
-      display:flex;
-      gap:12px;
-      align-items:center;
-      justify-content:flex-end;
-      flex: 1 1 300px;
-    }
-
-    .btn {
-      appearance:none;
-      border:0;
-      background:var(--primary);
-      color:white;
-      padding:12px 18px;
-      border-radius:10px;
-      font-weight:600;
-      cursor:pointer;
-      font-size:16px;
-      box-shadow: 0 6px 18px rgba(15,98,254,0.18);
-    }
-    .btn:focus{ outline: 3px solid rgba(15,98,254,0.18); outline-offset:3px; }
-
-    .btn-secondary{
-      background:transparent;
-      border:1px solid #e6e9ef;
-      color:var(--accent);
-      padding:10px 14px;
-      border-radius:10px;
-    }
-
-    .instructions {
-      width:100%;
-      margin-top:8px;
-      background:linear-gradient(180deg, rgba(15,23,36,0.02), rgba(15,23,36,0.00));
-      padding:18px;
-      border-radius:12px;
-      display:flex;
-      gap:20px;
-      align-items:flex-start;
-      box-sizing:border-box;
-    }
-
-    .steps {
-      display:flex;
-      flex-direction:column;
-      gap:10px;
-    }
-
-    .step {
-      display:flex;
-      gap:12px;
-      align-items:flex-start;
-    }
-    .dot {
-      width:10px;
-      height:10px;
-      border-radius:50%;
-      background:var(--primary);
-      margin-top:6px;
-      flex-shrink:0;
-    }
-
-    footer.meta {
-      width:100%;
-      margin-top:14px;
-      display:flex;
-      justify-content:space-between;
-      color:var(--muted);
-      font-size:13px;
-    }
-
-    /* Responsive */
-    @media (max-width:720px){
-      .card{ padding:18px; gap:12px;}
-      .brand{ flex-basis:100%; }
-      .actions{ flex-basis:100%; justify-content:flex-start; margin-top:6px;}
-    }
-  </style>
+  <!-- Importa o CSS base e responsivo -->
+  <link rel="stylesheet" href="styles.css">
 </head>
+
 <body>
-  <main class="container">
-    <section class="card" role="region" aria-labelledby="titulo-jogo">
+  <main class="container" role="main">
+    <section class="start-card" role="region" aria-labelledby="titulo-jogo">
+
+      <!-- LOGO E TÍTULO -->
       <div class="brand" aria-hidden="false">
         <figure class="logo" aria-hidden="true">
-          <!-- Minimalistic 2x2 grid SVG logo (replace if you have image file) -->
+          <!-- Logotipo minimalista -->
           <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Logotipo Jogo da Memória Digital">
             <rect x="6" y="6" width="88" height="88" rx="12" fill="#0F1724" opacity="0.06"/>
             <g transform="translate(10,10)" stroke="#0F1724" stroke-width="4" stroke-linecap="round" stroke-linejoin="round">
@@ -178,22 +34,33 @@
         </div>
       </div>
 
+      <!-- BOTÕES -->
       <div class="actions" aria-hidden="false">
-        <!-- Start button navigates to game.html. Replace with behavior if you want SPA -->
-        <button id="startBtn" class="btn" aria-describedby="instrucoes" title="Iniciar Jogo">Iniciar</button>
-        <button id="howBtn" class="btn-secondary" aria-expanded="false" aria-controls="instrucoes">Como Jogar</button>
+        <button id="startBtn" class="btn btn-primary" aria-describedby="instrucoes" title="Iniciar Jogo">Iniciar</button>
+        <button id="howBtn" class="btn btn-ghost" aria-expanded="false" aria-controls="instrucoes">Como Jogar</button>
       </div>
 
-      <!-- Instruções resumidas -->
-      <div id="instrucoes" class="instructions" role="region" aria-labelledby="label-instrucoes" style="margin-top:18px;">
-        <div style="flex:0 0 8px;"></div>
+      <!-- INSTRUÇÕES -->
+      <div id="instrucoes" class="instructions" role="region" aria-labelledby="label-instrucoes">
         <div style="flex:1;">
           <h2 id="label-instrucoes" style="font-size:15px;margin:0 0 8px 0;">Instruções rápidas</h2>
           <div class="steps" id="stepsList">
-            <div class="step"><span class="dot" aria-hidden="true"></span><div><strong>Objetivo:</strong> Encontrar todos os pares virando duas cartas por vez.</div></div>
-            <div class="step"><span class="dot" aria-hidden="true"></span><div><strong>Pontuação:</strong> Menos tentativas aumentam sua pontuação.</div></div>
-            <div class="step"><span class="dot" aria-hidden="true"></span><div><strong>Níveis:</strong> Selecione dificuldade depois de iniciar (Fácil/Médio/Difícil).</div></div>
-            <div class="step"><span class="dot" aria-hidden="true"></span><div><strong>Voltar:</strong> Ao final da partida você pode reiniciar ou ver o histórico.</div></div>
+            <div class="step">
+              <span class="dot" aria-hidden="true"></span>
+              <div><strong>Objetivo:</strong> Encontrar todos os pares virando duas cartas por vez.</div>
+            </div>
+            <div class="step">
+              <span class="dot" aria-hidden="true"></span>
+              <div><strong>Pontuação:</strong> Menos tentativas aumentam sua pontuação.</div>
+            </div>
+            <div class="step">
+              <span class="dot" aria-hidden="true"></span>
+              <div><strong>Níveis:</strong> Selecione dificuldade depois de iniciar (Fácil/Médio/Difícil).</div>
+            </div>
+            <div class="step">
+              <span class="dot" aria-hidden="true"></span>
+              <div><strong>Voltar:</strong> Ao final da partida você pode reiniciar ou ver o histórico.</div>
+            </div>
           </div>
 
           <footer class="meta" aria-hidden="false">
@@ -205,34 +72,27 @@
     </section>
   </main>
 
+  <!-- JAVASCRIPT DA TELA INICIAL -->
   <script>
-    // Ação do botão iniciar: navega para game.html
+    // JavaScript para tela inicial - SIMPLIFICADO
     const startBtn = document.getElementById('startBtn');
+    const howBtn = document.getElementById('howBtn');
+
+    // Botão "Iniciar": redireciona para o tabuleiro
     startBtn.addEventListener('click', () => {
-      // Se preferir um jogo SPA, aqui você chamaria a função que monta o tabuleiro.
-      // Por padrão redireciona para game.html (crie esse arquivo).
       window.location.href = 'game.html';
     });
 
-    // "Como Jogar" alterna visibilidade / foco da seção de instruções
-    const howBtn = document.getElementById('howBtn');
-    const instr = document.getElementById('instrucoes');
-
+    // Botão "Como Jogar": rola suavemente até as instruções
     howBtn.addEventListener('click', () => {
-      const expanded = howBtn.getAttribute('aria-expanded') === 'true';
-      howBtn.setAttribute('aria-expanded', String(!expanded));
-      if(!expanded){
-        instr.scrollIntoView({behavior:'smooth', block:'center'});
-        howBtn.textContent = 'Fechar';
-      } else {
-        howBtn.textContent = 'Como Jogar';
-        startBtn.focus();
-      }
+      const instrucoes = document.getElementById('instrucoes');
+      instrucoes.scrollIntoView({ behavior: 'smooth', block: 'center' });
     });
 
-    // Suporte tecla Enter para iniciar
+    // Acessibilidade: tecla Enter ou espaço inicia o jogo
     document.addEventListener('keydown', (e) => {
-      if((e.key === 'Enter' || e.key === ' ') && document.activeElement === startBtn){
+      if ((e.key === 'Enter' || e.key === ' ') && document.activeElement === startBtn) {
+        e.preventDefault();
         startBtn.click();
       }
     });
