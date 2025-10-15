@@ -10,7 +10,7 @@
 <body>
   <div class="app">
     <div class="container">
-      <!-- Header do Jogo com Sistema de Pontuação -->
+      <!-- Header do Jogo com Controles de Som -->
       <header class="game-header">
         <div class="row" style="justify-content: space-between; align-items: center;">
           <button id="backBtn" class="btn btn-ghost" aria-label="Voltar para tela inicial">
@@ -20,9 +20,14 @@
             <h1 style="margin: 0; font-size: 1.4rem;">Jogo da Memória</h1>
             <div class="difficulty-badge" id="difficultyBadge">Fácil</div>
           </div>
-          <div class="score-display-mini">
-            <span class="score-label">Pontuação</span>
-            <span class="score-value" id="currentScore">0</span>
+          <div class="game-controls">
+            <button id="soundToggle" class="btn-icon" aria-label="Alternar som" title="Som">
+              🔊
+            </button>
+            <div class="score-display-mini">
+              <span class="score-label">Pontuação</span>
+              <span class="score-value" id="currentScore">0</span>
+            </div>
           </div>
         </div>
         
@@ -50,6 +55,12 @@
           </div>
         </div>
       </header>
+
+      <!-- Loading de Sons -->
+      <div id="soundLoader" class="sound-loader">
+        <div class="loader-spinner"></div>
+        <span>Carregando sons...</span>
+      </div>
 
       <!-- Seleção de Dificuldade Aprimorada -->
       <section class="difficulty-section" id="difficultySection">
@@ -108,6 +119,9 @@
         <div class="game-board" id="gameBoard">
           <!-- As cartas serão geradas dinamicamente via JavaScript -->
         </div>
+        
+        <!-- Efeitos Visuais -->
+        <div id="visualEffects" class="visual-effects"></div>
       </section>
 
       <!-- Controles do Jogo -->
@@ -123,6 +137,23 @@
       </footer>
     </div>
   </div>
+
+  <!-- Elementos de Áudio (Ocultos) -->
+  <audio id="flipSound" preload="auto">
+    <source src="sounds/flip.mp3" type="audio/mpeg">
+  </audio>
+  <audio id="matchSound" preload="auto">
+    <source src="sounds/match.mp3" type="audio/mpeg">
+  </audio>
+  <audio id="mismatchSound" preload="auto">
+    <source src="sounds/mismatch.mp3" type="audio/mpeg">
+  </audio>
+  <audio id="victorySound" preload="auto">
+    <source src="sounds/victory.mp3" type="audio/mpeg">
+  </audio>
+  <audio id="clickSound" preload="auto">
+    <source src="sounds/click.mp3" type="audio/mpeg">
+  </audio>
 
   <script src="game.js"></script>
 </body>

@@ -1,4 +1,4 @@
-// game.js - Sistema Completo de Pontuação e Níveis
+// game.js - Sistema Completo de Feedback Visual e Sonoro (VERSÃO CORRIGIDA)
 class MemoryGame {
     constructor() {
         this.cards = [];
@@ -13,33 +13,13 @@ class MemoryGame {
         this.timerInterval = null;
         this.currentDifficulty = null;
         this.multiplier = 1;
+        this.soundEnabled = true;
 
         // Configurações de dificuldade
         this.difficultySettings = {
-            easy: { 
-                pairs: 4, 
-                columns: 'cards-4',
-                multiplier: 1.0,
-                baseScore: 100,
-                timeBonus: 50,
-                perfectBonus: 200
-            },
-            medium: { 
-                pairs: 6, 
-                columns: 'cards-6',
-                multiplier: 1.5,
-                baseScore: 150,
-                timeBonus: 75,
-                perfectBonus: 300
-            },
-            hard: { 
-                pairs: 8, 
-                columns: 'cards-8',
-                multiplier: 2.0,
-                baseScore: 200,
-                timeBonus: 100,
-                perfectBonus: 400
-            }
+            easy: { pairs: 4, columns: 'cards-4', multiplier: 1.0, baseScore: 100, timeBonus: 50, perfectBonus: 200 },
+            medium: { pairs: 6, columns: 'cards-6', multiplier: 1.5, baseScore: 150, timeBonus: 75, perfectBonus: 300 },
+            hard: { pairs: 8, columns: 'cards-8', multiplier: 2.0, baseScore: 200, timeBonus: 100, perfectBonus: 400 }
         };
 
         // Elementos DOM
@@ -53,43 +33,120 @@ class MemoryGame {
         this.restartBtn = document.getElementById('restartBtn');
         this.changeDifficultyBtn = document.getElementById('changeDifficultyBtn');
         this.backBtn = document.getElementById('backBtn');
+        this.soundToggle = document.getElementById('soundToggle');
+        this.soundLoader = document.getElementById('soundLoader');
+        this.visualEffects = document.getElementById('visualEffects');
+
+        // Elementos de áudio
+        this.sounds = {
+            flip: document.getElementById('flipSound'),
+            match: document.getElementById('matchSound'),
+            mismatch: document.getElementById('mismatchSound'),
+            victory: document.getElementById('victorySound'),
+            click: document.getElementById('clickSound')
+        };
 
         this.init();
     }
 
-    init() {
+    async init() {
+        await this.preloadSounds();
         this.setupEventListeners();
         this.showDifficultySelection();
     }
 
+    // ✅ PRÉ-CARREGAR SONS
+    async preloadSounds() {
+        try {
+            this.soundLoader.style.display = 'flex';
+            
+            const loadPromises = Object.values(this.sounds).map(sound => {
+                return new Promise((resolve) => {
+                    sound.addEventListener('canplaythrough', () => resolve(), { once: true });
+                    sound.load();
+                    setTimeout(resolve, 2000);
+                });
+            });
+
+            await Promise.all(loadPromises);
+            this.setupFallbackSounds();
+            
+        } catch (error) {
+            console.warn('Erro ao carregar sons:', error);
+            this.setupFallbackSounds();
+        } finally {
+            this.soundLoader.style.display = 'none';
+        }
+    }
+
+    setupFallbackSounds() {
+        if (!this.sounds.flip.src) {
+            console.log('Usando sons alternativos...');
+        }
+    }
+
     setupEventListeners() {
         this.backBtn.addEventListener('click', () => {
-            window.location.href = 'index.html';
+            this.playSound('click');
+            setTimeout(() => window.location.href = 'index.html', 200);
         });
 
         this.restartBtn.addEventListener('click', () => {
+            this.playSound('click');
             this.restartGame();
         });
 
         this.changeDifficultyBtn.addEventListener('click', () => {
+            this.playSound('click');
             this.showDifficultySelection();
         });
 
-        // ✅ TAREFA: Seleção de dificuldade
+        this.soundToggle.addEventListener('click', () => {
+            this.soundEnabled = !this.soundEnabled;
+            this.updateSoundButton();
+            this.playSound('click');
+        });
+
         document.querySelectorAll('.difficulty-option').forEach(option => {
             option.addEventListener('click', (e) => {
-                // Remover seleção anterior
+                this.playSound('click');
                 document.querySelectorAll('.difficulty-option').forEach(opt => {
                     opt.classList.remove('selected');
                 });
-                
-                // Adicionar seleção atual
                 e.currentTarget.classList.add('selected');
-                
                 const difficulty = e.currentTarget.dataset.difficulty;
                 this.startGame(difficulty);
             });
         });
+
+        this.setupHapticFeedback();
+    }
+
+    updateSoundButton() {
+        this.soundToggle.textContent = this.soundEnabled ? '🔊' : '🔇';
+        this.soundToggle.setAttribute('aria-label', 
+            this.soundEnabled ? 'Desativar som' : 'Ativar som');
+    }
+
+    setupHapticFeedback() {
+        if ('vibrate' in navigator) {
+            this.vibrate = (pattern) => navigator.vibrate(pattern);
+        } else {
+            this.vibrate = () => {};
+        }
+    }
+
+    // ✅ SISTEMA DE SONS
+    playSound(type) {
+        if (!this.soundEnabled) return;
+
+        const sound = this.sounds[type];
+        if (sound && sound.readyState >= 2) {
+            sound.currentTime = 0;
+            sound.play().catch(e => {
+                console.warn(`Erro ao reproduzir som ${type}:`, e);
+            });
+        }
     }
 
     showDifficultySelection() {
@@ -98,13 +155,11 @@ class MemoryGame {
         this.restartBtn.style.display = 'none';
         this.changeDifficultyBtn.style.display = 'none';
         
-        // Resetar seleção
         document.querySelectorAll('.difficulty-option').forEach(opt => {
             opt.classList.remove('selected');
         });
     }
 
-    // ✅ TAREFA: Iniciar jogo com dificuldade selecionada
     startGame(difficulty) {
         document.getElementById('difficultySection').style.display = 'none';
         document.getElementById('gameSection').style.display = 'block';
@@ -115,9 +170,7 @@ class MemoryGame {
         const config = this.difficultySettings[difficulty];
         this.multiplier = config.multiplier;
 
-        // Atualizar badge de dificuldade
         this.updateDifficultyBadge(difficulty);
-
         this.setupBoard(config);
         this.startTimer();
     }
@@ -149,11 +202,22 @@ class MemoryGame {
 
         this.updateStats();
 
-        // Gerar e embaralhar cartas
         const cardValues = this.generateCardValues(config.pairs);
         const shuffledValues = this.shuffleCards(cardValues);
-        
         this.createCards(shuffledValues);
+
+        this.animateBoardEntrance();
+    }
+
+    animateBoardEntrance() {
+        this.gameBoard.style.opacity = '0';
+        this.gameBoard.style.transform = 'scale(0.8)';
+        
+        setTimeout(() => {
+            this.gameBoard.style.transition = 'all 0.5s ease';
+            this.gameBoard.style.opacity = '1';
+            this.gameBoard.style.transform = 'scale(1)';
+        }, 100);
     }
 
     generateCardValues(pairsCount) {
@@ -214,6 +278,18 @@ class MemoryGame {
             }
         });
 
+        card.addEventListener('mouseenter', () => {
+            if (!card.classList.contains('is-flipped') && !card.classList.contains('matched')) {
+                card.style.transform = 'scale(1.05)';
+            }
+        });
+
+        card.addEventListener('mouseleave', () => {
+            if (!card.classList.contains('is-flipped') && !card.classList.contains('matched')) {
+                card.style.transform = 'scale(1)';
+            }
+        });
+
         return card;
     }
 
@@ -226,7 +302,10 @@ class MemoryGame {
             return;
         }
 
-        this.flipCard(card, true);
+        this.playSound('flip');
+        this.vibrate(50);
+
+        this.flipCardWithAnimation(card, true);
         this.flippedCards.push(card);
 
         if (this.flippedCards.length === 2) {
@@ -237,17 +316,43 @@ class MemoryGame {
             setTimeout(() => {
                 this.checkForMatch();
                 this.canFlip = true;
-            }, 800);
+            }, 1000);
         }
     }
 
-    flipCard(card, flip) {
+    flipCardWithAnimation(card, flip) {
         card.isFlipped = flip;
+        
         if (flip) {
             card.element.classList.add('is-flipped');
+            this.createSparkleEffect(card.element);
         } else {
             card.element.classList.remove('is-flipped');
+            card.element.classList.add('mismatch-shake'); // ✅ CORRIGIDO
+            setTimeout(() => {
+                card.element.classList.remove('mismatch-shake');
+            }, 500);
         }
+    }
+
+    createSparkleEffect(element) {
+        const sparkle = document.createElement('div');
+        sparkle.className = 'sparkle-effect';
+        sparkle.style.cssText = `
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            border-radius: 12px;
+            background: radial-gradient(circle, rgba(255,255,255,0.8) 0%, transparent 70%);
+            animation: sparkleFlash 0.3s ease-out;
+            pointer-events: none;
+            z-index: 2;
+        `;
+        
+        element.appendChild(sparkle);
+        setTimeout(() => sparkle.remove(), 300);
     }
 
     checkForMatch() {
@@ -263,14 +368,18 @@ class MemoryGame {
     }
 
     handleMatch(card1, card2) {
+        this.playSound('match');
+        this.vibrate([100, 50, 100]);
+
         card1.isMatched = true;
         card2.isMatched = true;
+        
         card1.element.classList.add('matched');
         card2.element.classList.add('matched');
         
-        this.matchedPairs++;
+        this.animateMatch(card1, card2);
         
-        // ✅ TAREFA: Calcular pontuação em tempo real
+        this.matchedPairs++;
         this.calculateScoreForMatch();
         this.updateStats();
         
@@ -281,30 +390,81 @@ class MemoryGame {
         }
     }
 
-    handleMismatch(card1, card2) {
-        this.flipCard(card1, false);
-        this.flipCard(card2, false);
-        this.flippedCards = [];
+    animateMatch(card1, card2) {
+        card1.element.style.animation = 'matchPulse 0.6s ease';
+        card2.element.style.animation = 'matchPulse 0.6s ease';
+        
+        this.createConnectionEffect(card1.element, card2.element);
+        
+        setTimeout(() => {
+            card1.element.style.animation = '';
+            card2.element.style.animation = '';
+        }, 600);
     }
 
-    // ✅ TAREFA: Sistema de pontuação
+    createConnectionEffect(element1, element2) {
+        const rect1 = element1.getBoundingClientRect();
+        const rect2 = element2.getBoundingClientRect();
+        
+        const connection = document.createElement('div');
+        connection.className = 'connection-line';
+        connection.style.cssText = `
+            position: fixed;
+            top: ${rect1.top + rect1.height / 2}px;
+            left: ${rect1.left + rect1.width / 2}px;
+            width: ${Math.hypot(rect2.left - rect1.left, rect2.top - rect1.top)}px;
+            height: 3px;
+            background: linear-gradient(90deg, transparent, var(--success), transparent);
+            transform-origin: 0 0;
+            transform: rotate(${Math.atan2(rect2.top - rect1.top, rect2.left - rect1.left)}rad);
+            animation: connectionGlow 0.5s ease-out;
+            pointer-events: none;
+            z-index: 1;
+        `;
+        
+        document.body.appendChild(connection);
+        setTimeout(() => connection.remove(), 500);
+    }
+
+    handleMismatch(card1, card2) {
+        this.playSound('mismatch');
+        this.vibrate(200);
+
+        card1.element.classList.add('mismatch-shake');
+        card2.element.classList.add('mismatch-shake');
+
+        setTimeout(() => {
+            this.flipCardWithAnimation(card1, false);
+            this.flipCardWithAnimation(card2, false);
+            card1.element.classList.remove('mismatch-shake');
+            card2.element.classList.remove('mismatch-shake');
+            this.flippedCards = [];
+        }, 600);
+    }
+
+    updateStats() {
+        this.movesCount.textContent = this.moves;
+        this.pairsCount.textContent = `${this.matchedPairs}/${this.totalPairs}`;
+        this.currentScore.textContent = this.score;
+        
+        const efficiency = this.totalPairs > 0 ? 
+            Math.round((this.matchedPairs / this.moves) * 100) || 0 : 0;
+        this.efficiency.textContent = `${efficiency}%`;
+    }
+
     calculateScoreForMatch() {
         const config = this.difficultySettings[this.currentDifficulty];
         
-        // Pontuação base por par encontrado
         let points = config.baseScore;
         
-        // Bônus por eficiência (menos jogadas)
         const minPossibleMoves = this.totalPairs * 2;
         const efficiency = Math.max(0.5, minPossibleMoves / this.moves);
         points = Math.round(points * efficiency);
         
-        // Aplicar multiplicador de dificuldade
         points = Math.round(points * this.multiplier);
         
         this.score += points;
         
-        // Efeito visual de pontos
         this.showScoreAnimation(points);
     }
 
@@ -334,18 +494,6 @@ class MemoryGame {
         }, 1000);
     }
 
-    // ✅ TAREFA: Atualizar estatísticas em tempo real
-    updateStats() {
-        this.movesCount.textContent = this.moves;
-        this.pairsCount.textContent = `${this.matchedPairs}/${this.totalPairs}`;
-        this.currentScore.textContent = this.score;
-        
-        // Calcular eficiência
-        const efficiency = this.totalPairs > 0 ? 
-            Math.round((this.matchedPairs / this.moves) * 100) || 0 : 0;
-        this.efficiency.textContent = `${efficiency}%`;
-    }
-
     startTimer() {
         this.startTime = new Date();
         this.timerInterval = setInterval(() => {
@@ -363,17 +511,14 @@ class MemoryGame {
         }
     }
 
-    // ✅ TAREFA: Cálculo final da pontuação
     calculateFinalScore() {
         const config = this.difficultySettings[this.currentDifficulty];
         let finalScore = this.score;
         
-        // Bônus de tempo
         const gameTime = Math.floor((new Date() - this.startTime) / 1000);
         const timeBonus = Math.max(0, config.timeBonus - Math.floor(gameTime / 10));
         finalScore += timeBonus;
         
-        // Bônus por jogo perfeito (mínimo de jogadas)
         const minPossibleMoves = this.totalPairs * 2;
         if (this.moves <= minPossibleMoves) {
             finalScore += config.perfectBonus;
@@ -386,42 +531,103 @@ class MemoryGame {
         this.stopTimer();
         this.gameStarted = false;
         
+        this.playSound('victory');
+        this.vibrate([100, 50, 100, 50, 100]);
+
+        this.createConfettiEffect();
+        
         const finalScore = this.calculateFinalScore();
         const gameTime = this.timer.textContent;
         
         setTimeout(() => {
-            this.showResults(finalScore, gameTime);
-        }, 1000);
+            this.showVictoryMessage(finalScore, gameTime);
+        }, 1500);
     }
 
-    showResults(finalScore, gameTime) {
-        const resultsHTML = `
-            <div class="results-overlay">
-                <div class="results-card">
-                    <h2>🎉 Parabéns!</h2>
-                    <div class="results-stats">
-                        <div class="result-item">
-                            <span>Pontuação Final:</span>
-                            <strong>${finalScore}</strong>
+    createConfettiEffect() {
+        const confettiContainer = document.createElement('div');
+        confettiContainer.className = 'confetti-container';
+        confettiContainer.style.cssText = `
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 1000;
+        `;
+
+        for (let i = 0; i < 50; i++) {
+            const confetti = document.createElement('div');
+            confetti.className = 'confetti';
+            confetti.style.cssText = `
+                position: absolute;
+                width: 10px;
+                height: 10px;
+                background: ${this.getRandomColor()};
+                top: -10px;
+                left: ${Math.random() * 100}%;
+                animation: confettiFall ${1 + Math.random() * 2}s linear forwards;
+                border-radius: 2px;
+            `;
+            confettiContainer.appendChild(confetti);
+        }
+
+        document.body.appendChild(confettiContainer);
+        setTimeout(() => confettiContainer.remove(), 3000);
+    }
+
+    getRandomColor() {
+        const colors = ['#ff6b6b', '#4ecdc4', '#45b7d1', '#96ceb4', '#feca57', '#ff9ff3'];
+        return colors[Math.floor(Math.random() * colors.length)];
+    }
+
+    showVictoryMessage(finalScore, gameTime) {
+        const performance = this.calculatePerformance();
+        
+        const victoryHTML = `
+            <div class="victory-overlay">
+                <div class="victory-card">
+                    <div class="victory-header">
+                        <div class="victory-icon">🎉</div>
+                        <h2>Parabéns!</h2>
+                        <p>Você completou o jogo!</p>
+                    </div>
+                    
+                    <div class="victory-stats">
+                        <div class="victory-stat">
+                            <span class="stat-icon">⭐</span>
+                            <div>
+                                <strong>${finalScore}</strong>
+                                <span>Pontuação Final</span>
+                            </div>
                         </div>
-                        <div class="result-item">
-                            <span>Jogadas:</span>
-                            <span>${this.moves}</span>
+                        <div class="victory-stat">
+                            <span class="stat-icon">🎯</span>
+                            <div>
+                                <strong>${this.moves}</strong>
+                                <span>Jogadas</span>
+                            </div>
                         </div>
-                        <div class="result-item">
-                            <span>Tempo:</span>
-                            <span>${gameTime}</span>
-                        </div>
-                        <div class="result-item">
-                            <span>Dificuldade:</span>
-                            <span>${this.difficultyBadge.textContent}</span>
+                        <div class="victory-stat">
+                            <span class="stat-icon">⏱️</span>
+                            <div>
+                                <strong>${gameTime}</strong>
+                                <span>Tempo</span>
+                            </div>
                         </div>
                     </div>
-                    <div class="results-actions">
-                        <button onclick="window.memoryGame.restartGame()" class="btn btn-primary">
+
+                    <div class="performance-rating">
+                        <span class="rating-label">Desempenho:</span>
+                        <span class="rating-value ${performance.class}">${performance.text}</span>
+                    </div>
+
+                    <div class="victory-actions">
+                        <button onclick="window.memoryGame.restartGame()" class="btn btn-primary victory-btn">
                             🎮 Jogar Novamente
                         </button>
-                        <button onclick="window.memoryGame.showDifficultySelection()" class="btn btn-ghost">
+                        <button onclick="window.memoryGame.showDifficultySelection()" class="btn btn-ghost victory-btn">
                             📊 Nova Dificuldade
                         </button>
                     </div>
@@ -429,14 +635,30 @@ class MemoryGame {
             </div>
         `;
         
-        document.body.insertAdjacentHTML('beforeend', resultsHTML);
+        document.body.insertAdjacentHTML('beforeend', victoryHTML);
+        
+        setTimeout(() => {
+            const victoryCard = document.querySelector('.victory-card');
+            victoryCard.style.transform = 'scale(1)';
+            victoryCard.style.opacity = '1';
+        }, 100);
+    }
+
+    calculatePerformance() {
+        const minMoves = this.totalPairs * 2;
+        const efficiency = (minMoves / this.moves) * 100;
+        
+        if (efficiency >= 90) return { text: 'PERFEITO! 🏆', class: 'perfect' };
+        if (efficiency >= 75) return { text: 'EXCELENTE! ⭐', class: 'excellent' };
+        if (efficiency >= 60) return { text: 'MUITO BOM! 👍', class: 'good' };
+        if (efficiency >= 40) return { text: 'BOM! 💪', class: 'average' };
+        return { text: 'CONTINUE PRATICANDO! 🌱', class: 'practice' };
     }
 
     restartGame() {
-        // Remover overlay de resultados se existir
-        const resultsOverlay = document.querySelector('.results-overlay');
-        if (resultsOverlay) {
-            resultsOverlay.remove();
+        const victoryOverlay = document.querySelector('.victory-overlay');
+        if (victoryOverlay) {
+            victoryOverlay.remove();
         }
         
         this.stopTimer();
