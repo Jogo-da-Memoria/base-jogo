@@ -245,6 +245,61 @@ a:focus {
 }
 
 /* -------------------------
+   Header do Jogo
+   ------------------------- */
+.game-header {
+  margin-bottom: 24px;
+}
+
+/* -------------------------
+   Seção de Dificuldade
+   ------------------------- */
+.difficulty-section h2 {
+  text-align: center;
+  margin-bottom: 20px;
+  color: var(--text);
+}
+
+.difficulty-selector {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin: 20px 0;
+}
+
+.difficulty-option {
+  padding: 16px;
+  border: 2px solid var(--glass);
+  border-radius: 12px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.difficulty-option:hover {
+  border-color: var(--accent);
+  background: var(--glass);
+  transform: translateY(-2px);
+}
+
+.difficulty-option.selected {
+  border-color: var(--accent);
+  background: rgba(15,98,254,0.08);
+}
+
+.difficulty-option strong {
+  font-size: 1.1rem;
+  color: var(--text);
+}
+
+.difficulty-option span {
+  font-size: 0.9rem;
+  color: var(--muted);
+}
+
+/* -------------------------
    Game board (grid responsivo)
    ------------------------- */
 /* container do tabuleiro */
@@ -272,6 +327,9 @@ a:focus {
   .game-board.cards-12 { grid-template-columns: repeat(6, minmax(90px, 1fr)); }
 }
 
+/* -------------------------
+   Cartas e Animações
+   ------------------------- */
 /* card da carta (face e verso) */
 .card {
   width: 100%;
@@ -280,12 +338,17 @@ a:focus {
   perspective: 1000px;
   cursor: pointer;
   position: relative;
+  transition: transform 0.2s ease;
+}
+
+.card:not(.matched):hover {
+  transform: scale(1.05);
 }
 
 .card .inner {
   width: 100%;
   height: 100%;
-  transition: transform 400ms cubic-bezier(.2,.9,.3,1);
+  transition: transform 0.6s cubic-bezier(0.4, 0, 0.2, 1);
   transform-style: preserve-3d;
   position: relative;
   border-radius: 12px;
@@ -304,18 +367,22 @@ a:focus {
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 1.6rem;
 }
 
 .card__face--front {
-  background: linear-gradient(180deg, #ffffff, var(--glass));
+  background: linear-gradient(135deg, #ffffff, #f8fafc);
   border: 1px solid rgba(2,6,23,0.05);
   transform: rotateY(180deg);
+  font-size: 2rem;
+  box-shadow: inset 0 2px 4px rgba(0,0,0,0.05);
 }
 
 .card__face--back {
-  background: linear-gradient(180deg, var(--accent), var(--accent-700));
+  background: linear-gradient(135deg, var(--accent), var(--accent-700));
   color: #fff;
+  font-size: 1.4rem;
+  font-weight: bold;
+  box-shadow: 0 4px 12px rgba(15,98,254,0.2);
 }
 
 /* matched state */
@@ -335,35 +402,44 @@ a:focus {
 }
 
 .card:not(.matched):hover .card__face--back {
-  background: linear-gradient(180deg, var(--accent-700), #0035a8);
+  background: linear-gradient(135deg, var(--accent-700), #0035a8);
 }
 
 /* -------------------------
-   Tela de dificuldade
+   Animações para a Lógica do Jogo
    ------------------------- */
-.difficulty-selector {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-  margin: 20px 0;
+@keyframes matchPulse {
+  0% { 
+    transform: scale(1); 
+    box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7);
+  }
+  50% { 
+    transform: scale(1.1); 
+    box-shadow: 0 0 0 10px rgba(16, 185, 129, 0);
+  }
+  100% { 
+    transform: scale(1); 
+    box-shadow: 0 0 0 0 rgba(16, 185, 129, 0);
+  }
 }
 
-.difficulty-option {
-  padding: 16px;
-  border: 2px solid var(--glass);
-  border-radius: 12px;
-  cursor: pointer;
-  transition: all 0.2s ease;
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-5px); }
+  75% { transform: translateX(5px); }
 }
 
-.difficulty-option:hover {
-  border-color: var(--accent);
-  background: var(--glass);
+.card.mismatch {
+  animation: shake 0.5s ease-in-out;
 }
 
-.difficulty-option.selected {
-  border-color: var(--accent);
-  background: rgba(15,98,254,0.08);
+.card.matched {
+  animation: matchPulse 0.6s ease;
+}
+
+/* Feedback visual para cartas viradas */
+.card.is-flipped {
+  z-index: 1;
 }
 
 /* -------------------------
@@ -385,6 +461,31 @@ a:focus {
   font-size: 1.2rem;
   margin-bottom: 24px;
   color: var(--muted);
+}
+
+/* -------------------------
+   Indicadores de Status
+   ------------------------- */
+.status-indicator {
+  padding: 8px 12px;
+  border-radius: 20px;
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.status-playing {
+  background: rgba(15, 98, 254, 0.1);
+  color: var(--accent);
+}
+
+.status-paused {
+  background: rgba(245, 158, 11, 0.1);
+  color: #f59e0b;
+}
+
+.status-completed {
+  background: rgba(16, 185, 129, 0.1);
+  color: var(--success);
 }
 
 /* -------------------------
@@ -450,106 +551,7 @@ a:focus {
   .step div {
     font-size: 0.85rem;
   }
-}
 
-/* Tablets */
-@media (min-width: 541px) and (max-width: 768px) {
-  .game-board.cards-12 { 
-    grid-template-columns: repeat(4, minmax(70px, 1fr)); 
-  }
-
-  /* -------------------------
-   Header do Jogo
-   ------------------------- */
-.game-header {
-  margin-bottom: 24px;
-}
-
-/* -------------------------
-   Seção de Dificuldade
-   ------------------------- */
-.difficulty-section h2 {
-  text-align: center;
-  margin-bottom: 20px;
-  color: var(--text);
-}
-
-.difficulty-option {
-  padding: 16px;
-  border: 2px solid var(--glass);
-  border-radius: 12px;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.difficulty-option:hover {
-  border-color: var(--accent);
-  background: var(--glass);
-  transform: translateY(-2px);
-}
-
-.difficulty-option.selected {
-  border-color: var(--accent);
-  background: rgba(15,98,254,0.08);
-}
-
-.difficulty-option strong {
-  font-size: 1.1rem;
-  color: var(--text);
-}
-
-.difficulty-option span {
-  font-size: 0.9rem;
-  color: var(--muted);
-}
-
-/* -------------------------
-   Efeitos Específicos das Cartas
-   ------------------------- */
-.card {
-  transition: transform 0.2s ease;
-}
-
-.card:not(.matched):hover {
-  transform: scale(1.05);
-}
-
-.card__face--front {
-  font-size: 2rem !important;
-  background: linear-gradient(135deg, #ffffff, #f8fafc) !important;
-  box-shadow: inset 0 2px 4px rgba(0,0,0,0.05);
-}
-
-.card__face--back {
-  font-size: 1.4rem !important;
-  font-weight: bold;
-  background: linear-gradient(135deg, var(--accent), var(--accent-700)) !important;
-  box-shadow: 0 4px 12px rgba(15,98,254,0.2);
-}
-
-/* Animação de flip melhorada */
-.card .inner {
-  transition: transform 0.6s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-/* Efeito de match */
-.card.matched {
-  animation: matchPulse 0.6s ease;
-}
-
-@keyframes matchPulse {
-  0% { transform: scale(1); }
-  50% { transform: scale(1.1); }
-  100% { transform: scale(1); }
-}
-
-/* -------------------------
-   Responsividade do Tabuleiro
-   ------------------------- */
-@media (max-width: 540px) {
   .game-header .row {
     flex-direction: column;
     gap: 12px;
@@ -565,6 +567,12 @@ a:focus {
     padding: 12px;
   }
 }
+
+/* Tablets */
+@media (min-width: 541px) and (max-width: 768px) {
+  .game-board.cards-12 { 
+    grid-template-columns: repeat(4, minmax(70px, 1fr)); 
+  }
 }
 
 /* -------------------------
@@ -609,7 +617,7 @@ a:focus {
 }
 
 /* -------------------------
-   Animações
+   Animações Gerais
    ------------------------- */
 @keyframes fadeIn {
   from { opacity: 0; transform: translateY(10px); }
@@ -644,6 +652,248 @@ a:focus {
   .card__face--back {
     border: 2px solid ButtonText;
   }
+  
+
+  /* -------------------------
+   Sistema de Pontuação e Níveis
+   ------------------------- */
+
+/* Header do jogo aprimorado */
+.game-title {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+
+.difficulty-badge {
+  padding: 4px 12px;
+  border-radius: 20px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.badge-easy {
+  background: rgba(16, 185, 129, 0.1);
+  color: var(--success);
+}
+
+.badge-medium {
+  background: rgba(245, 158, 11, 0.1);
+  color: #f59e0b;
+}
+
+.badge-hard {
+  background: rgba(239, 68, 68, 0.1);
+  color: var(--danger);
+}
+
+/* Display de pontuação */
+.score-display-mini {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+
+.score-label {
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+
+.score-value {
+  font-size: 1.4rem;
+  font-weight: bold;
+  color: var(--accent);
+}
+
+/* Estatísticas do jogo */
+.game-stats {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+  margin-top: 20px;
+  padding: 16px;
+  background: var(--glass);
+  border-radius: 12px;
+}
+
+.stat-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+
+.stat-icon {
+  font-size: 1.2rem;
+}
+
+.stat-value {
+  font-size: 1.1rem;
+  font-weight: bold;
+  color: var(--text);
+}
+
+.stat-label {
+  font-size: 0.8rem;
+  color: var(--muted);
+  text-transform: lowercase;
+}
+
+/* Seção de dificuldade aprimorada */
+.section-header {
+  text-align: center;
+  margin-bottom: 24px;
+}
+
+.section-header h2 {
+  margin: 0 0 8px 0;
+  color: var(--text);
+}
+
+.section-header p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.95rem;
+}
+
+.difficulty-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+.difficulty-icon {
+  font-size: 1.5rem;
+}
+
+.difficulty-desc {
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+
+.difficulty-details {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.9rem;
+  color: var(--muted);
+}
+
+.score-multiplier {
+  color: var(--accent);
+  font-weight: 600;
+}
+
+/* Animações de pontuação */
+@keyframes scoreFloat {
+  0% {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -100px) scale(1.2);
+  }
+}
+
+.score-popup {
+  pointer-events: none;
+}
+
+/* Overlay de resultados */
+.results-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(15, 23, 36, 0.8);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 20px;
+}
+
+.results-card {
+  background: var(--surface);
+  border-radius: 16px;
+  padding: 32px;
+  max-width: 400px;
+  width: 100%;
+  text-align: center;
+  box-shadow: 0 20px 60px rgba(2, 6, 23, 0.2);
+}
+
+.results-card h2 {
+  margin: 0 0 24px 0;
+  color: var(--text);
+}
+
+.results-stats {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-bottom: 24px;
+}
+
+.result-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--glass);
+}
+
+.result-item:last-child {
+  border-bottom: none;
+}
+
+.results-actions {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+}
+
+/* Controles do rodapé */
+.footer-controls {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+  margin-top: 24px;
+}
+
+/* Responsividade */
+@media (max-width: 768px) {
+  .game-stats {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 12px;
+  }
+  
+  .results-actions {
+    flex-direction: column;
+  }
+  
+  .footer-controls {
+    flex-direction: column;
+    align-items: center;
+  }
+}
+
+@media (max-width: 480px) {
+  .game-header .row {
+    flex-direction: column;
+    gap: 16px;
+    text-align: center;
+  }
+  
+  .score-display-mini {
+    order: -1;
+  }
+}
 }
 
 /* Esconder elementos visualmente mas manter para leitores de tela */
