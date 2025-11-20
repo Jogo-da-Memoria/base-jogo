@@ -1,4 +1,4 @@
-// game.js - Sistema Completo de Feedback Visual e Sonoro (VERSÃO CORRIGIDA)
+// game.js - Sistema Completo com Ranking Global e Individual
 class MemoryGame {
     constructor() {
         this.cards = [];
@@ -14,6 +14,8 @@ class MemoryGame {
         this.currentDifficulty = null;
         this.multiplier = 1;
         this.soundEnabled = true;
+        this.playerName = '';
+        this.rankingSubmitted = false;
 
         // Configurações de dificuldade
         this.difficultySettings = {
@@ -21,6 +23,9 @@ class MemoryGame {
             medium: { pairs: 6, columns: 'cards-6', multiplier: 1.5, baseScore: 150, timeBonus: 75, perfectBonus: 300 },
             hard: { pairs: 8, columns: 'cards-8', multiplier: 2.0, baseScore: 200, timeBonus: 100, perfectBonus: 400 }
         };
+
+        // URLs da API (ajuste conforme seu deploy)
+        this.API_BASE_URL = 'https://seu-backend.railway.app/api'; // Ou localhost:3000/api
 
         // Elementos DOM
         this.gameBoard = document.getElementById('gameBoard');
@@ -53,6 +58,21 @@ class MemoryGame {
         await this.preloadSounds();
         this.setupEventListeners();
         this.showDifficultySelection();
+        this.checkAPIStatus();
+    }
+
+    // ✅ VERIFICAR STATUS DA API
+    async checkAPIStatus() {
+        try {
+            const response = await fetch(`${this.API_BASE_URL}/health`);
+            if (response.ok) {
+                console.log('✅ API conectada com sucesso');
+            } else {
+                console.warn('⚠️ API offline, usando modo local');
+            }
+        } catch (error) {
+            console.warn('❌ API offline, usando modo local');
+        }
     }
 
     // ✅ PRÉ-CARREGAR SONS
@@ -328,7 +348,7 @@ class MemoryGame {
             this.createSparkleEffect(card.element);
         } else {
             card.element.classList.remove('is-flipped');
-            card.element.classList.add('mismatch-shake'); // ✅ CORRIGIDO
+            card.element.classList.add('mismatch-shake');
             setTimeout(() => {
                 card.element.classList.remove('mismatch-shake');
             }, 500);
@@ -448,7 +468,7 @@ class MemoryGame {
         this.currentScore.textContent = this.score;
         
         const efficiency = this.totalPairs > 0 ? 
-            Math.round((this.matchedPairs / this.moves) * 100) || 0 : 0;
+            Math.round((this.matchedPairs / Math.max(1, this.moves)) * 100) : 0;
         this.efficiency.textContent = `${efficiency}%`;
     }
 
@@ -458,7 +478,7 @@ class MemoryGame {
         let points = config.baseScore;
         
         const minPossibleMoves = this.totalPairs * 2;
-        const efficiency = Math.max(0.5, minPossibleMoves / this.moves);
+        const efficiency = Math.max(0.5, minPossibleMoves / Math.max(1, this.moves));
         points = Math.round(points * efficiency);
         
         points = Math.round(points * this.multiplier);
@@ -524,7 +544,219 @@ class MemoryGame {
             finalScore += config.perfectBonus;
         }
         
-        return finalScore;
+        return Math.max(0, finalScore);
+    }
+
+    // ✅ SISTEMA DE RANKING GLOBAL
+
+    // Mostrar modal para inserir nome
+    showNameModal(finalScore, gameTime) {
+        const modal = document.createElement('div');
+        modal.className = 'modal-overlay';
+        modal.innerHTML = `
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3>🎮 Registrar Pontuação</h3>
+                    <p>Sua pontuação: <strong>${finalScore}</strong> pontos</p>
+                </div>
+                <div class="modal-body">
+                    <p>Digite seu nome para entrar no ranking global:</p>
+                    <input 
+                        type="text" 
+                        id="playerNameInput" 
+                        placeholder="Seu nome (2-20 caracteres)" 
+                        maxlength="20"
+                        class="name-input"
+                        value="${localStorage.getItem('playerName') || ''}"
+                    >
+                    <div class="modal-actions">
+                        <button id="submitScoreBtn" class="btn btn-primary">
+                            🏆 Salvar no Ranking
+                        </button>
+                        <button id="skipScoreBtn" class="btn btn-ghost">
+                            Pular
+                        </button>
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        document.body.appendChild(modal);
+        
+        // Foco no input
+        const input = document.getElementById('playerNameInput');
+        input.focus();
+        
+        // Event listeners
+        document.getElementById('submitScoreBtn').addEventListener('click', () => {
+            this.submitScoreToRanking(finalScore, gameTime);
+        });
+        
+        document.getElementById('skipScoreBtn').addEventListener('click', () => {
+            modal.remove();
+            this.showVictoryMessage(finalScore, gameTime, false);
+        });
+        
+        input.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                this.submitScoreToRanking(finalScore, gameTime);
+            }
+        });
+    }
+
+    // Enviar pontuação para o ranking
+    async submitScoreToRanking(finalScore, gameTime) {
+        const input = document.getElementById('playerNameInput');
+        const name = input.value.trim();
+        
+        if (name.length < 2 || name.length > 20) {
+            this.showToast('Nome deve ter entre 2 e 20 caracteres');
+            return;
+        }
+        
+        this.playerName = name;
+        
+        // Salvar nome no localStorage para futuras partidas
+        localStorage.setItem('playerName', name);
+        
+        try {
+            const response = await fetch(`${this.API_BASE_URL}/ranking`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    playerName: this.playerName,
+                    score: finalScore,
+                    moves: this.moves,
+                    time: gameTime,
+                    difficulty: this.currentDifficulty,
+                    efficiency: Math.round((this.matchedPairs / Math.max(1, this.moves)) * 100)
+                })
+            });
+            
+            const result = await response.json();
+            
+            if (response.ok) {
+                this.rankingSubmitted = true;
+                document.querySelector('.modal-overlay').remove();
+                this.showVictoryMessage(finalScore, gameTime, true);
+                this.showToast('Pontuação salva no ranking!');
+            } else {
+                throw new Error(result.error || 'Erro ao salvar pontuação');
+            }
+            
+        } catch (error) {
+            console.error('Erro ao salvar ranking:', error);
+            document.querySelector('.modal-overlay').remove();
+            this.showVictoryMessage(finalScore, gameTime, false);
+            this.showToast('Modo offline - Pontuação salva localmente');
+            
+            // Salvar localmente como fallback
+            this.saveGameToHistory(finalScore, gameTime, this.moves, this.currentDifficulty);
+        }
+    }
+
+    // Carregar ranking global
+    async loadGlobalRanking() {
+        try {
+            const response = await fetch(`${this.API_BASE_URL}/ranking/global`);
+            const rankings = await response.json();
+            return rankings;
+        } catch (error) {
+            console.error('Erro ao carregar ranking global:', error);
+            return [];
+        }
+    }
+
+    // Carregar ranking do jogador
+    async loadPlayerRanking(playerName) {
+        try {
+            const response = await fetch(`${this.API_BASE_URL}/ranking/player/${encodeURIComponent(playerName)}`);
+            const rankings = await response.json();
+            return rankings;
+        } catch (error) {
+            console.error('Erro ao carregar ranking do jogador:', error);
+            return [];
+        }
+    }
+
+    // ✅ SISTEMA DE HISTÓRICO LOCAL
+
+    // Salvar partida no histórico
+    saveGameToHistory(finalScore, gameTime, moves, difficulty) {
+        const gameRecord = {
+            score: finalScore,
+            time: gameTime,
+            moves: moves,
+            difficulty: difficulty,
+            date: new Date().toISOString(),
+            timestamp: Date.now(),
+            playerName: this.playerName || 'Anônimo'
+        };
+
+        // Recuperar histórico existente
+        const history = this.getGameHistory();
+        
+        // Adicionar novo registro no início
+        history.unshift(gameRecord);
+        
+        // Manter apenas os últimos 20 registros
+        if (history.length > 20) {
+            history.splice(20);
+        }
+        
+        // Salvar no localStorage
+        localStorage.setItem('memoryGameHistory', JSON.stringify(history));
+        
+        console.log('Partida salva no histórico:', gameRecord);
+    }
+
+    // Recuperar histórico do localStorage
+    getGameHistory() {
+        try {
+            const history = localStorage.getItem('memoryGameHistory');
+            return history ? JSON.parse(history) : [];
+        } catch (error) {
+            console.error('Erro ao carregar histórico:', error);
+            return [];
+        }
+    }
+
+    // Mostrar toast de feedback
+    showToast(message) {
+        const toast = document.createElement('div');
+        toast.textContent = message;
+        toast.style.cssText = `
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: var(--success);
+            color: white;
+            padding: 12px 20px;
+            border-radius: 8px;
+            z-index: 1000;
+            animation: slideUp 0.3s ease;
+        `;
+        
+        document.body.appendChild(toast);
+        
+        setTimeout(() => {
+            toast.remove();
+        }, 3000);
+    }
+
+    // ✅ MÉTODO CORRIGIDO: Nova Dificuldade
+    changeDifficulty() {
+        // Remover overlay de vitória
+        const victoryOverlay = document.querySelector('.victory-overlay');
+        if (victoryOverlay) {
+            victoryOverlay.remove();
+        }
+        
+        this.stopTimer();
+        this.showDifficultySelection();
     }
 
     endGame() {
@@ -539,8 +771,9 @@ class MemoryGame {
         const finalScore = this.calculateFinalScore();
         const gameTime = this.timer.textContent;
         
+        // ✅ SALVAR NO HISTÓRICO E MOSTRAR MODAL DE NOME
         setTimeout(() => {
-            this.showVictoryMessage(finalScore, gameTime);
+            this.showNameModal(finalScore, gameTime);
         }, 1500);
     }
 
@@ -582,7 +815,7 @@ class MemoryGame {
         return colors[Math.floor(Math.random() * colors.length)];
     }
 
-    showVictoryMessage(finalScore, gameTime) {
+    showVictoryMessage(finalScore, gameTime, showRanking = false) {
         const performance = this.calculatePerformance();
         
         const victoryHTML = `
@@ -623,12 +856,23 @@ class MemoryGame {
                         <span class="rating-value ${performance.class}">${performance.text}</span>
                     </div>
 
+                    ${showRanking ? `
+                    <div class="ranking-actions">
+                        <button onclick="window.memoryGame.showRanking()" class="btn btn-primary">
+                            📊 Ver Ranking Global
+                        </button>
+                    </div>
+                    ` : ''}
+
                     <div class="victory-actions">
                         <button onclick="window.memoryGame.restartGame()" class="btn btn-primary victory-btn">
                             🎮 Jogar Novamente
                         </button>
-                        <button onclick="window.memoryGame.showDifficultySelection()" class="btn btn-ghost victory-btn">
-                            📊 Nova Dificuldade
+                        <button onclick="window.memoryGame.changeDifficulty()" class="btn btn-ghost victory-btn">
+                            🎯 Nova Dificuldade
+                        </button>
+                        <button onclick="window.location.href = 'index.html'" class="btn btn-ghost victory-btn">
+                            🏠 Menu Principal
                         </button>
                     </div>
                 </div>
@@ -644,9 +888,139 @@ class MemoryGame {
         }, 100);
     }
 
+    // Mostrar tela de ranking
+    async showRanking() {
+        const victoryOverlay = document.querySelector('.victory-overlay');
+        if (!victoryOverlay) return;
+
+        // Adicionar seção de ranking
+        const rankingSection = document.createElement('div');
+        rankingSection.className = 'ranking-section';
+        rankingSection.innerHTML = `
+            <div class="ranking-tabs">
+                <button class="tab-btn active" data-tab="global">🌍 Ranking Global</button>
+                <button class="tab-btn" data-tab="player">👤 Meu Ranking</button>
+            </div>
+            
+            <div class="tab-content">
+                <div id="globalRanking" class="tab-pane active">
+                    <div class="loading">Carregando ranking global...</div>
+                </div>
+                <div id="playerRanking" class="tab-pane">
+                    ${this.playerName ? 
+                        '<div class="loading">Carregando seu ranking...</div>' :
+                        '<p class="no-data">Nome não registrado</p>'
+                    }
+                </div>
+            </div>
+        `;
+
+        victoryOverlay.querySelector('.victory-card').appendChild(rankingSection);
+
+        // Event listeners para tabs
+        rankingSection.querySelectorAll('.tab-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                const tab = e.target.dataset.tab;
+                this.switchRankingTab(tab);
+            });
+        });
+
+        // Carregar dados
+        await this.loadAndRenderGlobalRanking();
+        if (this.playerName) {
+            await this.loadAndRenderPlayerRanking();
+        }
+    }
+
+    async switchRankingTab(tab) {
+        // Atualizar botões ativos
+        document.querySelectorAll('.tab-btn').forEach(btn => {
+            btn.classList.remove('active');
+        });
+        document.querySelector(`[data-tab="${tab}"]`).classList.add('active');
+
+        // Mostrar conteúdo correto
+        document.querySelectorAll('.tab-pane').forEach(pane => {
+            pane.classList.remove('active');
+        });
+        document.getElementById(`${tab}Ranking`).classList.add('active');
+
+        // Carregar dados se necessário
+        if (tab === 'global') {
+            await this.loadAndRenderGlobalRanking();
+        } else if (tab === 'player' && this.playerName) {
+            await this.loadAndRenderPlayerRanking();
+        }
+    }
+
+    async loadAndRenderGlobalRanking() {
+        const container = document.getElementById('globalRanking');
+        container.innerHTML = '<div class="loading">Carregando ranking global...</div>';
+
+        const rankings = await this.loadGlobalRanking();
+        this.renderRankingTable(container, rankings, 'global');
+    }
+
+    async loadAndRenderPlayerRanking() {
+        const container = document.getElementById('playerRanking');
+        container.innerHTML = '<div class="loading">Carregando seu ranking...</div>';
+
+        const rankings = await this.loadPlayerRanking(this.playerName);
+        this.renderRankingTable(container, rankings, 'player');
+    }
+
+    renderRankingTable(container, rankings, type) {
+        if (!rankings || rankings.length === 0) {
+            container.innerHTML = '<p class="no-data">Nenhum dado disponível</p>';
+            return;
+        }
+
+        const isGlobal = type === 'global';
+        
+        const tableHTML = `
+            <div class="ranking-table">
+                <div class="table-header">
+                    <span>${isGlobal ? 'Pos' : 'Data'}</span>
+                    <span>${isGlobal ? 'Jogador' : 'Desempenho'}</span>
+                    <span>Pontuação</span>
+                    <span>Detalhes</span>
+                </div>
+                <div class="table-body">
+                    ${rankings.map((item, index) => {
+                        const isCurrentPlayer = item.playerName === this.playerName;
+                        return `
+                            <div class="table-row ${isCurrentPlayer ? 'highlight' : ''}">
+                                <span class="rank-cell">
+                                    ${isGlobal ? `#${index + 1}` : new Date(item.date).toLocaleDateString('pt-BR')}
+                                </span>
+                                <span class="player-cell">
+                                    ${isGlobal ? item.playerName : this.getPerformanceRating(item.efficiency).text}
+                                </span>
+                                <span class="score-cell">${item.score}</span>
+                                <span class="details-cell">
+                                    ${item.moves} jogadas • ${item.time} • ${item.difficulty}
+                                </span>
+                            </div>
+                        `;
+                    }).join('')}
+                </div>
+            </div>
+        `;
+        
+        container.innerHTML = tableHTML;
+    }
+
+    getPerformanceRating(efficiency) {
+        if (efficiency >= 90) return { text: 'PERFEITO! 🏆', class: 'perfect' };
+        if (efficiency >= 75) return { text: 'EXCELENTE! ⭐', class: 'excellent' };
+        if (efficiency >= 60) return { text: 'MUITO BOM! 👍', class: 'good' };
+        if (efficiency >= 40) return { text: 'BOM! 💪', class: 'average' };
+        return { text: 'PRATICAR! 🌱', class: 'practice' };
+    }
+
     calculatePerformance() {
         const minMoves = this.totalPairs * 2;
-        const efficiency = (minMoves / this.moves) * 100;
+        const efficiency = (minMoves / Math.max(1, this.moves)) * 100;
         
         if (efficiency >= 90) return { text: 'PERFEITO! 🏆', class: 'perfect' };
         if (efficiency >= 75) return { text: 'EXCELENTE! ⭐', class: 'excellent' };
