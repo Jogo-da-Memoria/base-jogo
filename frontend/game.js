@@ -4,7 +4,7 @@ class RankingManager {
         this.localRankingKey = 'memoryGameGlobalRanking';
         this.maxLocalEntries = 50;
         // ✅ URL DO SEU BACKEND REAL - SUBSTITUA PELA SUA URL
-        this.backendBaseUrl = 'https://seu-backend-real.railway.app'; // ← SUBSTITUA ISSO!
+        this.backendBaseUrl = 'https://memory-game-backend-production.up.railway.app'; // ← SUBSTITUA ISSO!
     }
 
     // Salvar no ranking (tenta backend primeiro, depois local)
