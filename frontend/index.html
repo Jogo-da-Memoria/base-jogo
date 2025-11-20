@@ -1,0 +1,392 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Jogo da Memória Digital - Início</title>
+
+  <!-- Importa o CSS base e responsivo -->
+  <link rel="stylesheet" href="styles.css">
+</head>
+
+<body>
+  <main class="container" role="main">
+    <section class="start-card" role="region" aria-labelledby="titulo-jogo">
+
+      <!-- LOGO E TÍTULO -->
+      <div class="brand" aria-hidden="false">
+        <figure class="logo" aria-hidden="true">
+          <!-- Logotipo minimalista -->
+          <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Logotipo Jogo da Memória Digital">
+            <rect x="6" y="6" width="88" height="88" rx="12" fill="#0F1724" opacity="0.06"/>
+            <g transform="translate(10,10)" stroke="#0F1724" stroke-width="4" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="0" y="0" width="40" height="40" rx="6" fill="#7DD3FC"/>
+              <rect x="46" y="0" width="40" height="40" rx="6" fill="#FB7185"/>
+              <rect x="0" y="46" width="40" height="40" rx="6" fill="#FDE68A"/>
+              <rect x="46" y="46" width="40" height="40" rx="6" fill="#34D399"/>
+            </g>
+          </svg>
+        </figure>
+
+        <div>
+          <h1 id="titulo-jogo">Jogo da Memória Digital</h1>
+          <p class="lead">Memorize, combine pares e vença o tabuleiro — simples, rápido e divertido.</p>
+        </div>
+      </div>
+
+      <!-- BOTÕES -->
+      <div class="actions" aria-hidden="false">
+        <button id="startBtn" class="btn btn-primary" aria-describedby="instrucoes" title="Iniciar Jogo">Iniciar</button>
+        <button id="howBtn" class="btn btn-ghost" aria-expanded="false" aria-controls="instrucoes">Como Jogar</button>
+      </div>
+
+      <!-- INSTRUÇÕES -->
+      <div id="instrucoes" class="instructions" role="region" aria-labelledby="label-instrucoes">
+        <div style="flex:1;">
+          <h2 id="label-instrucoes" style="font-size:15px;margin:0 0 8px 0;">Instruções rápidas</h2>
+          <div class="steps" id="stepsList">
+            <div class="step">
+              <span class="dot" aria-hidden="true"></span>
+              <div><strong>Objetivo:</strong> Encontrar todos os pares virando duas cartas por vez.</div>
+            </div>
+            <div class="step">
+              <span class="dot" aria-hidden="true"></span>
+              <div><strong>Pontuação:</strong> Menos tentativas aumentam sua pontuação.</div>
+            </div>
+            <div class="step">
+              <span class="dot" aria-hidden="true"></span>
+              <div><strong>Níveis:</strong> Selecione dificuldade depois de iniciar (Fácil/Médio/Difícil).</div>
+            </div>
+            <div class="step">
+              <span class="dot" aria-hidden="true"></span>
+              <div><strong>Histórico:</strong> Veja seu desempenho nas partidas anteriores.</div>
+            </div>
+          </div>
+
+          <!-- SEÇÃO DE HISTÓRICO -->
+          <div class="history-section" id="historySection" style="display: none;">
+            <div class="history-header">
+              <h3 style="margin: 0; font-size: 1.1rem;">📊 Histórico e Ranking</h3>
+              <button id="clearHistoryBtn" class="btn btn-ghost" style="padding: 6px 12px; font-size: 0.85rem;">
+                🗑️ Limpar Local
+              </button>
+            </div>
+
+            <!-- Tabs para Histórico vs Ranking -->
+            <div class="history-tabs">
+              <button class="history-tab active" data-tab="local">📁 Meu Histórico</button>
+              <button class="history-tab" data-tab="global">🌍 Ranking Global</button>
+            </div>
+            
+            <!-- Conteúdo das Tabs -->
+            <div class="history-tab-content active" id="localHistory">
+              <div class="history-list" id="localHistoryList">
+                <!-- Histórico local será carregado aqui -->
+              </div>
+              <div class="history-empty" id="localHistoryEmpty">
+                <p style="text-align: center; color: var(--muted); margin: 20px 0;">
+                  Nenhuma partida registrada ainda.<br>
+                  Jogue uma partida para ver seu histórico!
+                </p>
+              </div>
+            </div>
+
+            <div class="history-tab-content" id="globalHistory">
+              <div class="global-ranking-container" id="globalRankingList">
+                <!-- Ranking global será carregado aqui -->
+              </div>
+              <div class="history-empty" id="globalHistoryEmpty">
+                <p style="text-align: center; color: var(--muted); margin: 20px 0;">
+                  Carregando ranking global...
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <footer class="meta" aria-hidden="false">
+            <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
+              <div>
+                <span>Tempo estimado de partida: 2–5 minutos</span>
+                <span>Versão: 2.0</span>
+              </div>
+              <button id="toggleHistoryBtn" class="btn btn-ghost" style="padding: 6px 12px; font-size: 0.85rem;">
+                📊 Ver Histórico
+              </button>
+            </div>
+          </footer>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- JAVASCRIPT DA TELA INICIAL -->
+  <script>
+    // JavaScript para tela inicial
+    const startBtn = document.getElementById('startBtn');
+    const howBtn = document.getElementById('howBtn');
+    const toggleHistoryBtn = document.getElementById('toggleHistoryBtn');
+    const clearHistoryBtn = document.getElementById('clearHistoryBtn');
+
+    // URLs da API - AJUSTE CONFORME SEU BACKEND
+    const API_BASE_URL = 'http://localhost:3000/api'; // Ou seu backend online
+
+    // Botão "Iniciar": redireciona para o tabuleiro
+    startBtn.addEventListener('click', () => {
+      window.location.href = 'game.html';
+    });
+
+    // Botão "Como Jogar": rola suavemente até as instruções
+    howBtn.addEventListener('click', () => {
+      const instrucoes = document.getElementById('instrucoes');
+      instrucoes.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    });
+
+    // Botão "Ver Histórico": mostra/oculta o histórico
+    if (toggleHistoryBtn) {
+      toggleHistoryBtn.addEventListener('click', function() {
+        const historySection = document.getElementById('historySection');
+        const isVisible = historySection.style.display === 'block';
+        
+        if (!isVisible) {
+          // Carregar histórico local e ranking global
+          loadLocalHistory();
+          loadGlobalRanking();
+          historySection.style.display = 'block';
+          historySection.scrollIntoView({ behavior: 'smooth' });
+          toggleHistoryBtn.textContent = '📊 Ocultar Histórico';
+        } else {
+          historySection.style.display = 'none';
+          toggleHistoryBtn.textContent = '📊 Ver Histórico';
+        }
+      });
+    }
+
+    // Botão "Limpar Histórico"
+    if (clearHistoryBtn) {
+      clearHistoryBtn.addEventListener('click', function() {
+        if (confirm('Tem certeza que deseja limpar todo o histórico local de partidas?')) {
+          localStorage.removeItem('memoryGameHistory');
+          loadLocalHistory();
+          showToast('Histórico local limpo com sucesso!');
+        }
+      });
+    }
+
+    // Configurar tabs do histórico
+    function setupHistoryTabs() {
+      const tabs = document.querySelectorAll('.history-tab');
+      const tabContents = document.querySelectorAll('.history-tab-content');
+      
+      tabs.forEach(tab => {
+        tab.addEventListener('click', () => {
+          const targetTab = tab.dataset.tab;
+          
+          // Remover classe active de todas as tabs e conteúdos
+          tabs.forEach(t => t.classList.remove('active'));
+          tabContents.forEach(content => content.classList.remove('active'));
+          
+          // Adicionar classe active à tab clicada e ao conteúdo correspondente
+          tab.classList.add('active');
+          document.getElementById(`${targetTab}History`).classList.add('active');
+          
+          // Se for a tab global, recarregar o ranking
+          if (targetTab === 'global') {
+            loadGlobalRanking();
+          }
+        });
+      });
+    }
+
+    // Função para carregar e exibir o histórico LOCAL
+    function loadLocalHistory() {
+      const localHistoryList = document.getElementById('localHistoryList');
+      const localHistoryEmpty = document.getElementById('localHistoryEmpty');
+      
+      try {
+        const history = localStorage.getItem('memoryGameHistory');
+        const historyData = history ? JSON.parse(history) : [];
+        
+        if (historyData.length === 0) {
+          localHistoryList.innerHTML = '';
+          localHistoryEmpty.style.display = 'block';
+          return;
+        }
+        
+        localHistoryEmpty.style.display = 'none';
+        
+        const historyHTML = historyData.map((record, index) => {
+          const difficultyNames = {
+            easy: 'Fácil',
+            medium: 'Médio',
+            hard: 'Difícil'
+          };
+          
+          const formatDate = (dateString) => {
+            const date = new Date(dateString);
+            return date.toLocaleDateString('pt-BR', {
+              day: '2-digit',
+              month: '2-digit',
+              hour: '2-digit',
+              minute: '2-digit'
+            });
+          };
+          
+          return `
+            <div class="history-item" data-index="${index}">
+              <div class="history-main">
+                <span class="history-score">${record.score} pts</span>
+                <span class="history-difficulty ${record.difficulty}">${difficultyNames[record.difficulty] || record.difficulty}</span>
+              </div>
+              <div class="history-details">
+                <span class="history-time">⏱️ ${record.time}</span>
+                <span class="history-moves">🎯 ${record.moves} jogadas</span>
+                <span class="history-date">${formatDate(record.date)}</span>
+              </div>
+            </div>
+          `;
+        }).join('');
+        
+        localHistoryList.innerHTML = historyHTML;
+        
+      } catch (error) {
+        console.error('Erro ao carregar histórico local:', error);
+        localHistoryEmpty.style.display = 'block';
+        localHistoryEmpty.innerHTML = '<p style="text-align: center; color: var(--danger);">Erro ao carregar histórico local</p>';
+      }
+    }
+
+    // Função para carregar RANKING GLOBAL
+    async function loadGlobalRanking() {
+      const globalRankingList = document.getElementById('globalRankingList');
+      const globalHistoryEmpty = document.getElementById('globalHistoryEmpty');
+      
+      try {
+        globalHistoryEmpty.style.display = 'block';
+        globalHistoryEmpty.innerHTML = '<p style="text-align: center; color: var(--muted); margin: 20px 0;">Carregando ranking global...</p>';
+        
+        const response = await fetch(`${API_BASE_URL}/ranking/global`);
+        
+        if (!response.ok) {
+          throw new Error('Erro ao carregar ranking global');
+        }
+        
+        const rankings = await response.json();
+        
+        if (!rankings || rankings.length === 0) {
+          globalHistoryEmpty.style.display = 'block';
+          globalHistoryEmpty.innerHTML = '<p style="text-align: center; color: var(--muted); margin: 20px 0;">Nenhum dado disponível no ranking global</p>';
+          globalRankingList.innerHTML = '';
+          return;
+        }
+        
+        globalHistoryEmpty.style.display = 'none';
+        
+        const rankingHTML = `
+          <div class="global-ranking-section">
+            <h4 style="margin: 0 0 16px 0; color: var(--text); text-align: center;">🏆 Top 10 Global</h4>
+            <div class="global-ranking-list">
+              ${rankings.slice(0, 10).map((player, index) => `
+                <div class="global-ranking-item ${index < 3 ? 'top-three' : ''}">
+                  <div class="global-rank">#${index + 1}</div>
+                  <div class="global-player-info">
+                    <span class="global-player-name">${player.playerName}</span>
+                    <span class="global-player-score">${player.score} pts</span>
+                  </div>
+                  <div class="global-player-details">
+                    <span>${player.moves} jogadas • ${player.time} • ${player.difficulty}</span>
+                  </div>
+                </div>
+              `).join('')}
+            </div>
+            <div style="text-align: center; margin-top: 16px; font-size: 0.85rem; color: var(--muted);">
+              Total de jogadores: ${rankings.length}
+            </div>
+          </div>
+        `;
+        
+        globalRankingList.innerHTML = rankingHTML;
+        
+      } catch (error) {
+        console.error('Erro ao carregar ranking global:', error);
+        globalHistoryEmpty.style.display = 'block';
+        globalHistoryEmpty.innerHTML = `
+          <p style="text-align: center; color: var(--danger); margin: 20px 0;">
+            ❌ Erro ao carregar ranking global<br>
+            <small style="color: var(--muted);">Verifique sua conexão com a internet</small>
+          </p>
+        `;
+        globalRankingList.innerHTML = '';
+      }
+    }
+
+    // Função para mostrar toast de feedback
+    function showToast(message) {
+      const toast = document.createElement('div');
+      toast.textContent = message;
+      toast.style.cssText = `
+        position: fixed;
+        bottom: 20px;
+        left: 50%;
+        transform: translateX(-50%);
+        background: var(--success);
+        color: white;
+        padding: 12px 20px;
+        border-radius: 8px;
+        z-index: 1000;
+        animation: slideUp 0.3s ease;
+        font-weight: 600;
+      `;
+      
+      document.body.appendChild(toast);
+      
+      setTimeout(() => {
+        toast.remove();
+      }, 3000);
+    }
+
+    // Acessibilidade: tecla Enter ou espaço inicia o jogo
+    document.addEventListener('keydown', (e) => {
+      if ((e.key === 'Enter' || e.key === ' ') && document.activeElement === startBtn) {
+        e.preventDefault();
+        startBtn.click();
+      }
+    });
+
+    // Inicialização quando a página carrega
+    document.addEventListener('DOMContentLoaded', function() {
+      // Configurar tabs
+      setupHistoryTabs();
+      
+      // Carregar histórico automaticamente se a seção estiver visível
+      const historySection = document.getElementById('historySection');
+      if (historySection && historySection.style.display === 'block') {
+        loadLocalHistory();
+        loadGlobalRanking();
+      }
+      
+      // Verificar se há um nome salvo para futuras partidas
+      const savedName = localStorage.getItem('playerName');
+      if (savedName) {
+        console.log('Jogador identificado:', savedName);
+      }
+    });
+
+    // Função para verificar status da API (opcional)
+    async function checkAPIStatus() {
+      try {
+        const response = await fetch(`${API_BASE_URL}/health`);
+        if (response.ok) {
+          console.log('✅ API conectada com sucesso');
+          return true;
+        }
+      } catch (error) {
+        console.warn('❌ API offline - Modo local ativado');
+      }
+      return false;
+    }
+
+    // Verificar status da API ao carregar a página
+    checkAPIStatus();
+  </script>
+</body>
+</html>
