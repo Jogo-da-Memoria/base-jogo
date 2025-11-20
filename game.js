@@ -1,4 +1,4 @@
-// game.js - Sistema Completo de Feedback Visual e Sonoro (VERSÃO CORRIGIDA)
+// game.js - Sistema Completo de Feedback Visual e Sonssssoro (VERSÃO CORRIGIDA)
 class MemoryGame {
     constructor() {
         this.cards = [];
@@ -46,7 +46,7 @@ class MemoryGame {
             click: document.getElementById('clickSound')
         };
 
-        this.init();
+        this.init(); 
     }
 
     async init() {
