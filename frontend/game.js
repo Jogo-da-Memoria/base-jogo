@@ -3,16 +3,22 @@ class RankingManager {
     constructor() {
         this.localRankingKey = 'memoryGameGlobalRanking';
         this.maxLocalEntries = 50;
+        // ✅ URL DO SEU BACKEND REAL - SUBSTITUA PELA SUA URL
+        this.backendBaseUrl = 'https://seu-backend-real.railway.app'; // ← SUBSTITUA ISSO!
     }
 
-    // Salvar no ranking local (fallback quando não há backend)
+    // Salvar no ranking (tenta backend primeiro, depois local)
     async saveToRanking(gameData) {
         try {
             // Primeiro tenta salvar no backend
             const backendSuccess = await this.tryBackendSave(gameData);
-            if (backendSuccess) return true;
+            if (backendSuccess) {
+                // Se salvou no backend, também salva localmente como backup
+                this.saveToLocalRanking(gameData);
+                return true;
+            }
             
-            // Se backend falhar, salva localmente
+            // Se backend falhar, salva apenas localmente
             return this.saveToLocalRanking(gameData);
         } catch (error) {
             // Fallback para localStorage
@@ -23,31 +29,28 @@ class RankingManager {
     // Tentar salvar no backend
     async tryBackendSave(gameData) {
         try {
-            // URLs possíveis do backend
-            const backendUrls = [
-                'https://seu-backend.railway.app/api/ranking',
-                'https://seu-backend.herokuapp.com/api/ranking',
-                'http://localhost:3000/api/ranking'
-            ];
-
-            for (const url of backendUrls) {
-                try {
-                    const response = await fetch(url, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify(gameData)
-                    });
-                    
-                    if (response.ok) {
-                        console.log('✅ Dados salvos no backend');
-                        return true;
-                    }
-                } catch (error) {
-                    console.log(`❌ Backend ${url} indisponível`);
-                }
+            // ✅ USA APENAS UMA URL - A DO SEU BACKEND
+            const backendUrl = `${this.backendBaseUrl}/api/ranking`;
+            
+            const response = await fetch(backendUrl, {
+                method: 'POST',
+                headers: { 
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json'
+                },
+                body: JSON.stringify(gameData)
+            });
+            
+            if (response.ok) {
+                console.log('✅ Dados salvos no backend');
+                return true;
+            } else {
+                console.warn('❌ Backend retornou erro:', response.status);
+                return false;
             }
-            return false;
+            
         } catch (error) {
+            console.warn('❌ Backend indisponível, usando modo local');
             return false;
         }
     }
@@ -97,26 +100,24 @@ class RankingManager {
     // Tentar carregar do backend
     async tryBackendLoad() {
         try {
-            const backendUrls = [
-                'https://seu-backend.railway.app/api/ranking/global',
-                'https://seu-backend.herokuapp.com/api/ranking/global'
-            ];
-
-            for (const url of backendUrls) {
-                try {
-                    const response = await fetch(url);
-                    if (response.ok) {
-                        const data = await response.json();
-                        if (data && data.length > 0) {
-                            return data;
-                        }
-                    }
-                } catch (error) {
-                    continue;
+            // ✅ USA APENAS UMA URL - A DO SEU BACKEND
+            const backendUrl = `${this.backendBaseUrl}/api/ranking/global`;
+            
+            const response = await fetch(backendUrl, {
+                headers: {
+                    'Accept': 'application/json'
+                }
+            });
+            
+            if (response.ok) {
+                const data = await response.json();
+                if (data && data.length > 0) {
+                    return data;
                 }
             }
             return null;
         } catch (error) {
+            console.warn('❌ Erro ao carregar do backend:', error);
             return null;
         }
     }
@@ -160,8 +161,7 @@ class MemoryGame {
             hard: { pairs: 8, columns: 'cards-8', multiplier: 2.0, baseScore: 200, timeBonus: 100, perfectBonus: 400 }
         };
 
-        // ✅ ATUALIZADO: URL mais flexível
-        this.API_BASE_URL = null; // Não é mais necessário para funcionamento básico
+        // ✅ REMOVIDO: this.API_BASE_URL não é mais necessário
 
         // Elementos DOM
         this.gameBoard = document.getElementById('gameBoard');
@@ -195,8 +195,6 @@ class MemoryGame {
         this.setupEventListeners();
         this.showDifficultySelection();
     }
-
-    // ✅ REMOVIDO: checkAPIStatus não é mais necessário
 
     // ✅ PRÉ-CARREGAR SONS
     async preloadSounds() {
@@ -885,7 +883,10 @@ class MemoryGame {
         const finalScore = this.calculateFinalScore();
         const gameTime = this.timer.textContent;
         
-        // ✅ SALVAR NO HISTÓRICO E MOSTRAR MODAL DE NOME
+        // ✅ SALVAR NO HISTÓRICO
+        this.saveGameToHistory(finalScore, gameTime, this.moves, this.currentDifficulty);
+        
+        // ✅ MOSTRAR MODAL DE NOME
         setTimeout(() => {
             this.showNameModal(finalScore, gameTime);
         }, 1500);

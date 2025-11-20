@@ -127,8 +127,8 @@
     const toggleHistoryBtn = document.getElementById('toggleHistoryBtn');
     const clearHistoryBtn = document.getElementById('clearHistoryBtn');
 
-    // URLs da API - AJUSTE CONFORME SEU BACKEND
-    const API_BASE_URL = 'http://localhost:3000/api'; // Ou seu backend online
+    // ✅ ATUALIZADO: URL DO SEU BACKEND REAL - SUBSTITUA PELA SUA URL
+    const API_BASE_URL = 'https://seu-backend-real.railway.app/api'; // ← SUBSTITUA ISSO!
 
     // Botão "Iniciar": redireciona para o tabuleiro
     startBtn.addEventListener('click', () => {
@@ -166,6 +166,7 @@
       clearHistoryBtn.addEventListener('click', function() {
         if (confirm('Tem certeza que deseja limpar todo o histórico local de partidas?')) {
           localStorage.removeItem('memoryGameHistory');
+          localStorage.removeItem('memoryGameGlobalRanking'); // Limpa ranking também
           loadLocalHistory();
           showToast('Histórico local limpo com sucesso!');
         }
@@ -255,7 +256,7 @@
       }
     }
 
-    // Função para carregar RANKING GLOBAL
+    // ✅ ATUALIZADA: Função para carregar RANKING GLOBAL com fallback
     async function loadGlobalRanking() {
       const globalRankingList = document.getElementById('globalRankingList');
       const globalHistoryEmpty = document.getElementById('globalHistoryEmpty');
@@ -264,7 +265,11 @@
         globalHistoryEmpty.style.display = 'block';
         globalHistoryEmpty.innerHTML = '<p style="text-align: center; color: var(--muted); margin: 20px 0;">Carregando ranking global...</p>';
         
-        const response = await fetch(`${API_BASE_URL}/ranking/global`);
+        const response = await fetch(`${API_BASE_URL}/ranking/global`, {
+          headers: {
+            'Accept': 'application/json'
+          }
+        });
         
         if (!response.ok) {
           throw new Error('Erro ao carregar ranking global');
@@ -308,14 +313,73 @@
         
       } catch (error) {
         console.error('Erro ao carregar ranking global:', error);
+        // ✅ FALLBACK: Carrega ranking local se backend falhar
+        loadLocalRankingAsFallback();
+      }
+    }
+
+    // ✅ NOVA: Função de fallback para carregar ranking local
+    function loadLocalRankingAsFallback() {
+      const globalRankingList = document.getElementById('globalRankingList');
+      const globalHistoryEmpty = document.getElementById('globalHistoryEmpty');
+      
+      try {
+        const localRanking = localStorage.getItem('memoryGameGlobalRanking');
+        const rankings = localRanking ? JSON.parse(localRanking) : [];
+        
+        if (rankings.length === 0) {
+          globalHistoryEmpty.style.display = 'block';
+          globalHistoryEmpty.innerHTML = `
+            <p style="text-align: center; color: var(--muted); margin: 20px 0;">
+              Ranking global indisponível<br>
+              <small style="color: var(--muted);">Jogue uma partida para ver dados locais</small>
+            </p>
+          `;
+          globalRankingList.innerHTML = '';
+          return;
+        }
+        
+        globalHistoryEmpty.style.display = 'none';
+        
+        // Ordenar por pontuação (maior primeiro)
+        rankings.sort((a, b) => b.score - a.score);
+        
+        const rankingHTML = `
+          <div class="global-ranking-section">
+            <h4 style="margin: 0 0 16px 0; color: var(--text); text-align: center;">🏆 Melhores Pontuações (Local)</h4>
+            <div class="global-ranking-list">
+              ${rankings.slice(0, 10).map((player, index) => `
+                <div class="global-ranking-item ${index < 3 ? 'top-three' : ''}">
+                  <div class="global-rank">#${index + 1}</div>
+                  <div class="global-player-info">
+                    <span class="global-player-name">${player.playerName || 'Jogador'}</span>
+                    <span class="global-player-score">${player.score} pts</span>
+                  </div>
+                  <div class="global-player-details">
+                    <span>${player.moves} jogadas • ${player.time} • ${player.difficulty}</span>
+                  </div>
+                </div>
+              `).join('')}
+            </div>
+            <div style="text-align: center; margin-top: 16px; font-size: 0.85rem; color: var(--muted);">
+              Total de registros: ${rankings.length}
+            </div>
+            <div style="text-align: center; margin-top: 8px; font-size: 0.75rem; color: var(--muted);">
+              ⚠️ Modo offline - Dados locais
+            </div>
+          </div>
+        `;
+        
+        globalRankingList.innerHTML = rankingHTML;
+        
+      } catch (error) {
+        console.error('Erro ao carregar fallback local:', error);
         globalHistoryEmpty.style.display = 'block';
         globalHistoryEmpty.innerHTML = `
-          <p style="text-align: center; color: var(--danger); margin: 20px 0;">
-            ❌ Erro ao carregar ranking global<br>
-            <small style="color: var(--muted);">Verifique sua conexão com a internet</small>
+          <p style="text-align: center; color: var(--muted); margin: 20px 0;">
+            Ranking indisponível no momento
           </p>
         `;
-        globalRankingList.innerHTML = '';
       }
     }
 
@@ -371,22 +435,7 @@
       }
     });
 
-    // Função para verificar status da API (opcional)
-    async function checkAPIStatus() {
-      try {
-        const response = await fetch(`${API_BASE_URL}/health`);
-        if (response.ok) {
-          console.log('✅ API conectada com sucesso');
-          return true;
-        }
-      } catch (error) {
-        console.warn('❌ API offline - Modo local ativado');
-      }
-      return false;
-    }
-
-    // Verificar status da API ao carregar a página
-    checkAPIStatus();
+    // ✅ REMOVIDO: Função checkAPIStatus não é mais necessária
   </script>
 </body>
 </html>
