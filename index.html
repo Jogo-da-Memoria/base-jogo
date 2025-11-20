@@ -4,19 +4,63 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>Jogo da Memória Digital - Início</title>
-
-  <!-- Importa o CSS base e responsivo -->
   <link rel="stylesheet" href="styles.css">
 </head>
 
 <body>
-  <main class="container" role="main">
+  <!-- Overlay de Login -->
+  <div id="loginOverlay" class="login-overlay" style="display: flex;">
+    <div class="login-card">
+      <div class="login-header">
+        <div class="login-icon">🎮</div>
+        <h2>Bem-vindo ao Jogo da Memória!</h2>
+        <p>Digite seu nome para começar a jogar</p>
+      </div>
+      
+      <form id="loginForm" class="login-form">
+        <div class="input-group">
+          <label for="playerName">Seu Nome:</label>
+          <input 
+            type="text" 
+            id="playerName" 
+            placeholder="Ex: João Silva" 
+            maxlength="20"
+            required
+            autocomplete="off"
+          >
+          <div class="input-hint">Máx. 20 caracteres</div>
+        </div>
+        
+        <div class="login-actions">
+          <button type="submit" class="btn btn-primary">
+            🚀 Começar a Jogar
+          </button>
+        </div>
+        
+        <div class="login-features">
+          <div class="feature">
+            <span>⭐</span>
+            <span>Histórico individual</span>
+          </div>
+          <div class="feature">
+            <span>🏆</span>
+            <span>Ranking global</span>
+          </div>
+          <div class="feature">
+            <span>📊</span>
+            <span>Estatísticas detalhadas</span>
+          </div>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <main class="container" role="main" style="display: none;">
     <section class="start-card" role="region" aria-labelledby="titulo-jogo">
 
       <!-- LOGO E TÍTULO -->
       <div class="brand" aria-hidden="false">
         <figure class="logo" aria-hidden="true">
-          <!-- Logotipo minimalista -->
           <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Logotipo Jogo da Memória Digital">
             <rect x="6" y="6" width="88" height="88" rx="12" fill="#0F1724" opacity="0.06"/>
             <g transform="translate(10,10)" stroke="#0F1724" stroke-width="4" stroke-linecap="round" stroke-linejoin="round">
@@ -31,13 +75,17 @@
         <div>
           <h1 id="titulo-jogo">Jogo da Memória Digital</h1>
           <p class="lead">Memorize, combine pares e vença o tabuleiro — simples, rápido e divertido.</p>
+          <div class="player-welcome" id="playerWelcome">
+            <!-- Nome do jogador será inserido aqui -->
+          </div>
         </div>
       </div>
 
       <!-- BOTÕES -->
       <div class="actions" aria-hidden="false">
         <button id="startBtn" class="btn btn-primary" aria-describedby="instrucoes" title="Iniciar Jogo">🎮 Iniciar</button>
-        <button id="historyBtn" class="btn btn-secondary" aria-label="Ver histórico de partidas">📊 Histórico</button>
+        <button id="historyBtn" class="btn btn-secondary" aria-label="Ver histórico de partidas">📊 Meu Histórico</button>
+        <button id="rankingBtn" class="btn btn-warning" aria-label="Ver ranking global">🏆 Ranking Global</button>
         <button id="howBtn" class="btn btn-ghost" aria-expanded="false" aria-controls="instrucoes">❓ Como Jogar</button>
       </div>
 
@@ -60,13 +108,13 @@
             </div>
             <div class="step">
               <span class="dot" aria-hidden="true"></span>
-              <div><strong>Histórico:</strong> Acompanhe seu desempenho nas partidas anteriores.</div>
+              <div><strong>Ranking:</strong> Compita com outros jogadores no ranking global.</div>
             </div>
           </div>
 
           <footer class="meta" aria-hidden="false">
             <span>Tempo estimado de partida: 2–5 minutos</span>
-            <span>Versão: 1.1</span>
+            <span>Versão: 2.0</span>
           </footer>
         </div>
       </div>
@@ -75,19 +123,79 @@
 
   <!-- JAVASCRIPT DA TELA INICIAL -->
   <script>
-    // JavaScript para tela inicial - ATUALIZADO COM HISTÓRICO
+    // JavaScript para tela inicial - ATUALIZADO COM LOGIN E RANKING
+    const loginOverlay = document.getElementById('loginOverlay');
+    const loginForm = document.getElementById('loginForm');
+    const playerNameInput = document.getElementById('playerName');
+    const mainContainer = document.querySelector('main');
+    const playerWelcome = document.getElementById('playerWelcome');
+    
     const startBtn = document.getElementById('startBtn');
     const historyBtn = document.getElementById('historyBtn');
+    const rankingBtn = document.getElementById('rankingBtn');
     const howBtn = document.getElementById('howBtn');
+
+    // ✅ SISTEMA DE LOGIN
+    loginForm.addEventListener('submit', (e) => {
+      e.preventDefault();
+      
+      const playerName = playerNameInput.value.trim();
+      
+      if (!playerName) {
+        showNotification('Por favor, digite seu nome!', 'error');
+        return;
+      }
+      
+      if (playerName.length > 20) {
+        showNotification('O nome deve ter no máximo 20 caracteres!', 'error');
+        return;
+      }
+      
+      // Salvar nome do jogador
+      localStorage.setItem('memoryGamePlayer', playerName);
+      
+      // Mostrar mensagem de boas-vindas
+      playerWelcome.innerHTML = `
+        <div class="welcome-message">
+          👋 Olá, <strong>${playerName}</strong>!
+        </div>
+      `;
+      
+      // Transição para a tela principal
+      loginOverlay.style.opacity = '0';
+      setTimeout(() => {
+        loginOverlay.style.display = 'none';
+        mainContainer.style.display = 'block';
+      }, 500);
+    });
+
+    // ✅ VERIFICAR SE JÁ EXISTE UM JOGADOR
+    window.addEventListener('DOMContentLoaded', () => {
+      const savedPlayer = localStorage.getItem('memoryGamePlayer');
+      if (savedPlayer) {
+        loginOverlay.style.display = 'none';
+        mainContainer.style.display = 'block';
+        playerWelcome.innerHTML = `
+          <div class="welcome-message">
+            👋 Olá, <strong>${savedPlayer}</strong>!
+          </div>
+        `;
+      }
+    });
 
     // Botão "Iniciar": redireciona para o tabuleiro
     startBtn.addEventListener('click', () => {
       window.location.href = 'game.html';
     });
 
-    // Botão "Histórico": mostra histórico na tela inicial
+    // Botão "Meu Histórico": mostra histórico individual
     historyBtn.addEventListener('click', () => {
-      showHistoryOnHome();
+      showIndividualHistory();
+    });
+
+    // Botão "Ranking Global": mostra ranking global
+    rankingBtn.addEventListener('click', () => {
+      showGlobalRanking();
     });
 
     // Botão "Como Jogar": rola suavemente até as instruções
@@ -96,36 +204,38 @@
       instrucoes.scrollIntoView({ behavior: 'smooth', block: 'center' });
     });
 
-    // ✅ FUNÇÃO PARA MOSTRAR HISTÓRICO NA TELA INICIAL
-    function showHistoryOnHome() {
+    // ✅ FUNÇÃO PARA MOSTRAR HISTÓRICO INDIVIDUAL
+    function showIndividualHistory() {
       try {
+        const playerName = localStorage.getItem('memoryGamePlayer');
         const history = JSON.parse(localStorage.getItem('memoryGameHistory') || '[]');
+        const playerHistory = history.filter(game => game.playerName === playerName);
         
         const historyHTML = `
           <div class="history-overlay">
             <div class="history-card">
               <div class="history-header">
-                <h2>📊 Histórico de Partidas</h2>
-                <button class="btn-close" onclick="closeHistoryOnHome()" aria-label="Fechar histórico">
+                <h2>📊 Meu Histórico - ${playerName}</h2>
+                <button class="btn-close" onclick="closeHistory()" aria-label="Fechar histórico">
                   ×
                 </button>
               </div>
               
               <div class="history-content">
-                ${history.length === 0 ? 
-                  '<div class="empty-history">🎯 Nenhuma partida registrada ainda.<br><br>Jogue uma partida para ver seu histórico de desempenho!</div>' : 
-                  generateHistoryList(history)
+                ${playerHistory.length === 0 ? 
+                  '<div class="empty-history">🎯 Nenhuma partida registrada ainda.<br><br>Jogue uma partida para ver seu histórico!</div>' : 
+                  generateHistoryList(playerHistory, true)
                 }
               </div>
               
               <div class="history-actions">
-                ${history.length > 0 ? 
-                  `<button onclick="clearGameHistory()" class="btn btn-danger">
-                    🗑️ Limpar Histórico
+                ${playerHistory.length > 0 ? 
+                  `<button onclick="clearIndividualHistory()" class="btn btn-danger">
+                    🗑️ Limpar Meu Histórico
                   </button>` : 
                   ''
                 }
-                <button onclick="closeHistoryOnHome()" class="btn btn-ghost">
+                <button onclick="closeHistory()" class="btn btn-ghost">
                   Fechar
                 </button>
               </div>
@@ -140,8 +250,62 @@
       }
     }
 
-    // ✅ FUNÇÕES AUXILIARES PARA A TELA INICIAL
-    function generateHistoryList(history) {
+    // ✅ FUNÇÃO PARA MOSTRAR RANKING GLOBAL
+    function showGlobalRanking() {
+      try {
+        const globalRanking = JSON.parse(localStorage.getItem('memoryGameGlobalRanking') || '[]');
+        const currentPlayer = localStorage.getItem('memoryGamePlayer');
+        
+        const rankingHTML = `
+          <div class="ranking-overlay">
+            <div class="ranking-card">
+              <div class="ranking-header">
+                <h2>🏆 Ranking Global</h2>
+                <button class="btn-close" onclick="closeRanking()" aria-label="Fechar ranking">
+                  ×
+                </button>
+              </div>
+              
+              <div class="ranking-content">
+                ${globalRanking.length === 0 ? 
+                  '<div class="empty-ranking">🎯 Nenhuma pontuação no ranking ainda.<br><br>Seja o primeiro a entrar no ranking!</div>' : 
+                  generateRankingList(globalRanking, currentPlayer)
+                }
+              </div>
+              
+              <div class="ranking-stats">
+                <div class="stat">
+                  <span class="stat-value">${globalRanking.length}</span>
+                  <span class="stat-label">Jogadores</span>
+                </div>
+                <div class="stat">
+                  <span class="stat-value">${globalRanking[0]?.score || 0}</span>
+                  <span class="stat-label">Recorde</span>
+                </div>
+                <div class="stat">
+                  <span class="stat-value">${getPlayerRank(globalRanking, currentPlayer) || '-'}</span>
+                  <span class="stat-label">Sua Posição</span>
+                </div>
+              </div>
+              
+              <div class="ranking-actions">
+                <button onclick="closeRanking()" class="btn btn-ghost">
+                  Fechar
+                </button>
+              </div>
+            </div>
+          </div>
+        `;
+        
+        document.body.insertAdjacentHTML('beforeend', rankingHTML);
+      } catch (error) {
+        console.error('Erro ao carregar ranking:', error);
+        alert('Erro ao carregar ranking global.');
+      }
+    }
+
+    // ✅ FUNÇÕES AUXILIARES
+    function generateHistoryList(history, showPlayer = false) {
       return `
         <div class="history-list">
           ${history.map((game, index) => `
@@ -171,6 +335,51 @@
       `;
     }
 
+    function generateRankingList(ranking, currentPlayer) {
+      return `
+        <div class="ranking-list">
+          ${ranking.slice(0, 20).map((player, index) => `
+            <div class="ranking-item ${player.playerName === currentPlayer ? 'current-player' : ''} ${index < 3 ? `top-${index + 1}` : ''}">
+              <div class="ranking-position">
+                ${getRankingMedal(index + 1)}
+              </div>
+              <div class="ranking-player-info">
+                <div class="player-name">
+                  ${player.playerName}
+                  ${player.playerName === currentPlayer ? '<span class="you-badge">Você</span>' : ''}
+                </div>
+                <div class="player-stats">
+                  <span>${player.score} pontos</span>
+                  <span>•</span>
+                  <span>${getDifficultyName(player.difficulty)}</span>
+                  <span>•</span>
+                  <span>${player.moves} jogadas</span>
+                </div>
+              </div>
+              <div class="ranking-score">
+                ${player.score}
+                <span>pts</span>
+              </div>
+            </div>
+          `).join('')}
+        </div>
+      `;
+    }
+
+    function getRankingMedal(position) {
+      switch(position) {
+        case 1: return '🥇';
+        case 2: return '🥈';
+        case 3: return '🥉';
+        default: return `#${position}`;
+      }
+    }
+
+    function getPlayerRank(ranking, playerName) {
+      const playerIndex = ranking.findIndex(player => player.playerName === playerName);
+      return playerIndex !== -1 ? playerIndex + 1 : null;
+    }
+
     function getDifficultyName(difficulty) {
       const names = { 
         easy: 'Fácil', 
@@ -195,37 +404,42 @@
       }
     }
 
-    function closeHistoryOnHome() {
+    function closeHistory() {
       const historyOverlay = document.querySelector('.history-overlay');
-      if (historyOverlay) {
-        historyOverlay.remove();
-      }
+      if (historyOverlay) historyOverlay.remove();
     }
 
-    function clearGameHistory() {
-      if (confirm('Tem certeza que deseja limpar todo o histórico de partidas?\n\nEsta ação não pode ser desfeita.')) {
+    function closeRanking() {
+      const rankingOverlay = document.querySelector('.ranking-overlay');
+      if (rankingOverlay) rankingOverlay.remove();
+    }
+
+    function clearIndividualHistory() {
+      if (confirm('Tem certeza que deseja limpar seu histórico individual?\n\nEsta ação não pode ser desfeita.')) {
         try {
-          localStorage.removeItem('memoryGameHistory');
-          closeHistoryOnHome();
-          // Mostrar notificação de sucesso
-          showNotification('Histórico limpo com sucesso!');
-          // Recarregar histórico vazio
-          setTimeout(showHistoryOnHome, 500);
+          const playerName = localStorage.getItem('memoryGamePlayer');
+          const globalHistory = JSON.parse(localStorage.getItem('memoryGameHistory') || '[]');
+          const filteredHistory = globalHistory.filter(game => game.playerName !== playerName);
+          
+          localStorage.setItem('memoryGameHistory', JSON.stringify(filteredHistory));
+          closeHistory();
+          showNotification('Seu histórico foi limpo!');
+          setTimeout(showIndividualHistory, 500);
         } catch (error) {
           alert('Erro ao limpar histórico.');
         }
       }
     }
 
-    function showNotification(message) {
-      // Criar notificação simples
+    function showNotification(message, type = 'info') {
       const notification = document.createElement('div');
+      notification.className = `notification notification-${type}`;
       notification.textContent = message;
       notification.style.cssText = `
         position: fixed;
         top: 20px;
         right: 20px;
-        background: var(--success);
+        background: ${type === 'success' ? 'var(--success)' : type === 'error' ? 'var(--danger)' : 'var(--accent)'};
         color: white;
         padding: 12px 20px;
         border-radius: 8px;
@@ -246,65 +460,35 @@
       }, 3000);
     }
 
-    // Acessibilidade: tecla Enter ou espaço inicia o jogo
+    // Acessibilidade
     document.addEventListener('keydown', (e) => {
       if ((e.key === 'Enter' || e.key === ' ') && document.activeElement === startBtn) {
         e.preventDefault();
         startBtn.click();
       }
-      
-      // Acessibilidade para botão de histórico
-      if ((e.key === 'Enter' || e.key === ' ') && document.activeElement === historyBtn) {
-        e.preventDefault();
-        historyBtn.click();
-      }
     });
 
-    // Animações CSS dinâmicas para notificações
+    // CSS dinâmico
     const style = document.createElement('style');
     style.textContent = `
-      @keyframes slideInRight {
-        from {
-          transform: translateX(100%);
-          opacity: 0;
-        }
-        to {
-          transform: translateX(0);
-          opacity: 1;
-        }
-      }
-      
-      @keyframes slideOutRight {
-        from {
-          transform: translateX(0);
-          opacity: 1;
-        }
-        to {
-          transform: translateX(100%);
-          opacity: 0;
-        }
-      }
-      
-      .btn-secondary {
-        background: var(--muted);
+      .btn-warning {
+        background: var(--warning);
         color: white;
         border: none;
       }
       
-      .btn-secondary:hover {
-        background: #4b5563;
+      .btn-warning:hover {
+        background: #e69500;
         transform: translateY(-1px);
       }
       
-      .btn-danger {
-        background: var(--danger);
-        color: white;
-        border: none;
-      }
-      
-      .btn-danger:hover {
-        background: #dc2626;
-        transform: translateY(-1px);
+      .welcome-message {
+        background: var(--glass);
+        padding: 8px 16px;
+        border-radius: 8px;
+        font-size: 0.9rem;
+        margin-top: 8px;
+        display: inline-block;
       }
     `;
     document.head.appendChild(style);

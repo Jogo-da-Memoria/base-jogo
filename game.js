@@ -1,4 +1,4 @@
-// game.js - Sistema Completo de Feedback Visual e Sonoro com Histórico Local (CORRIGIDO)
+// game.js - Sistema Completo com Ranking Global e Login
 class MemoryGame {
     constructor() {
         this.cards = [];
@@ -14,6 +14,7 @@ class MemoryGame {
         this.currentDifficulty = null;
         this.multiplier = 1;
         this.soundEnabled = true;
+        this.playerName = '';
 
         // Configurações de dificuldade
         this.difficultySettings = {
@@ -50,6 +51,13 @@ class MemoryGame {
     }
 
     async init() {
+        // ✅ VERIFICAR SE O JOGADOR ESTÁ LOGADO
+        this.playerName = localStorage.getItem('memoryGamePlayer');
+        if (!this.playerName) {
+            window.location.href = 'index.html';
+            return;
+        }
+
         await this.preloadSounds();
         this.setupEventListeners();
         this.showDifficultySelection();
@@ -125,6 +133,7 @@ class MemoryGame {
         document.addEventListener('keydown', (e) => {
             if (e.key === 'Escape') {
                 this.closeHistory();
+                this.closeRanking();
             }
         });
     }
@@ -168,6 +177,12 @@ class MemoryGame {
         const historyOverlay = document.querySelector('.history-overlay');
         if (historyOverlay) {
             historyOverlay.remove();
+        }
+
+        // Fechar overlay de ranking se existir
+        const rankingOverlay = document.querySelector('.ranking-overlay');
+        if (rankingOverlay) {
+            rankingOverlay.remove();
         }
         
         document.getElementById('difficultySection').style.display = 'block';
@@ -551,7 +566,7 @@ class MemoryGame {
         return finalScore;
     }
 
-    // ✅ SISTEMA DE HISTÓRICO LOCAL - IMPLEMENTAÇÃO COMPLETA
+    // ✅ SISTEMA DE HISTÓRICO LOCAL - ATUALIZADO COM NOME DO JOGADOR
     saveGameHistory(finalScore, gameTime, difficulty) {
         try {
             const gameData = {
@@ -562,7 +577,8 @@ class MemoryGame {
                 date: new Date().toISOString(),
                 efficiency: this.totalPairs > 0 ? 
                     Math.round((this.matchedPairs / this.moves) * 100) || 0 : 0,
-                pairs: this.totalPairs
+                pairs: this.totalPairs,
+                playerName: this.playerName // ✅ ADICIONAR NOME DO JOGADOR
             };
 
             // Recuperar histórico existente
@@ -577,9 +593,64 @@ class MemoryGame {
             // Salvar no localStorage
             localStorage.setItem('memoryGameHistory', JSON.stringify(limitedHistory));
             
-            console.log('Histórico salvo com sucesso!');
+            // ✅ SALVAR NO RANKING GLOBAL
+            this.updateGlobalRanking(gameData);
+            
+            console.log('Histórico e ranking atualizados com sucesso!');
         } catch (error) {
             console.error('Erro ao salvar histórico:', error);
+        }
+    }
+
+    // ✅ NOVA FUNÇÃO PARA ATUALIZAR RANKING GLOBAL
+    updateGlobalRanking(gameData) {
+        try {
+            const ranking = this.getGlobalRanking();
+            const playerIndex = ranking.findIndex(entry => 
+                entry.playerName === this.playerName && entry.difficulty === gameData.difficulty
+            );
+
+            const rankingEntry = {
+                playerName: this.playerName,
+                score: gameData.score,
+                difficulty: gameData.difficulty,
+                moves: gameData.moves,
+                time: gameData.time,
+                date: gameData.date,
+                efficiency: gameData.efficiency
+            };
+
+            if (playerIndex !== -1) {
+                // Atualizar score se for maior
+                if (gameData.score > ranking[playerIndex].score) {
+                    ranking[playerIndex] = rankingEntry;
+                }
+            } else {
+                // Adicionar novo jogador ao ranking
+                ranking.push(rankingEntry);
+            }
+
+            // Ordenar por score (maior para menor)
+            ranking.sort((a, b) => b.score - a.score);
+            
+            // Manter apenas os top 100
+            const limitedRanking = ranking.slice(0, 100);
+            
+            localStorage.setItem('memoryGameGlobalRanking', JSON.stringify(limitedRanking));
+            
+        } catch (error) {
+            console.error('Erro ao atualizar ranking global:', error);
+        }
+    }
+
+    // ✅ NOVA FUNÇÃO PARA OBTER RANKING GLOBAL
+    getGlobalRanking() {
+        try {
+            const ranking = localStorage.getItem('memoryGameGlobalRanking');
+            return ranking ? JSON.parse(ranking) : [];
+        } catch (error) {
+            console.error('Erro ao recuperar ranking global:', error);
+            return [];
         }
     }
 
@@ -651,7 +722,7 @@ class MemoryGame {
         const finalScore = this.calculateFinalScore();
         const gameTime = this.timer.textContent;
         
-        // ✅ SALVAR NO HISTÓRICO
+        // ✅ SALVAR NO HISTÓRICO E RANKING
         this.saveGameHistory(finalScore, gameTime, this.currentDifficulty);
         
         setTimeout(() => {
@@ -700,13 +771,15 @@ class MemoryGame {
     // ✅ ATUALIZAR A VICTORY MESSAGE PARA CORRIGIR O BOTÃO
     showVictoryMessage(finalScore, gameTime) {
         const performance = this.calculatePerformance();
+        const ranking = this.getGlobalRanking();
+        const playerRank = this.getPlayerRank(ranking);
         
         const victoryHTML = `
             <div class="victory-overlay">
                 <div class="victory-card">
                     <div class="victory-header">
                         <div class="victory-icon">🎉</div>
-                        <h2>Parabéns!</h2>
+                        <h2>Parabéns, ${this.playerName}!</h2>
                         <p>Você completou o jogo!</p>
                     </div>
                     
@@ -739,12 +812,22 @@ class MemoryGame {
                         <span class="rating-value ${performance.class}">${performance.text}</span>
                     </div>
 
+                    ${playerRank ? `
+                    <div class="ranking-info">
+                        <span class="ranking-label">Sua posição no ranking:</span>
+                        <span class="ranking-position">${this.getRankingMedal(playerRank)}</span>
+                    </div>
+                    ` : ''}
+
                     <div class="victory-actions">
                         <button class="btn btn-primary victory-btn" data-action="restart">
                             🎮 Jogar Novamente
                         </button>
                         <button class="btn btn-secondary victory-btn" data-action="history">
-                            📊 Ver Histórico
+                            📊 Meu Histórico
+                        </button>
+                        <button class="btn btn-warning victory-btn" data-action="ranking">
+                            🏆 Ranking Global
                         </button>
                         <button class="btn btn-ghost victory-btn" data-action="difficulty">
                             🔄 Nova Dificuldade
@@ -785,6 +868,9 @@ class MemoryGame {
                     case 'history':
                         this.showHistory();
                         break;
+                    case 'ranking':
+                        this.showGlobalRanking();
+                        break;
                     case 'difficulty':
                         this.showDifficultySelection();
                         break;
@@ -793,9 +879,10 @@ class MemoryGame {
         }
     }
 
-    // ✅ NOVA FUNÇÃO PARA MOSTRAR HISTÓRICO
+    // ✅ ATUALIZAR A FUNÇÃO showHistory PARA MOSTRAR APENAS DO JOGADOR ATUAL
     showHistory() {
         const history = this.getGameHistory();
+        const playerHistory = history.filter(game => game.playerName === this.playerName);
         
         // Fechar overlay de vitória se existir
         const victoryOverlay = document.querySelector('.victory-overlay');
@@ -807,26 +894,29 @@ class MemoryGame {
             <div class="history-overlay">
                 <div class="history-card">
                     <div class="history-header">
-                        <h2>📊 Histórico de Partidas</h2>
+                        <h2>📊 Meu Histórico - ${this.playerName}</h2>
                         <button class="btn-close" onclick="window.memoryGame.closeHistory()" aria-label="Fechar histórico">
                             ×
                         </button>
                     </div>
                     
                     <div class="history-content">
-                        ${history.length === 0 ? 
-                            '<div class="empty-history">Nenhuma partida registrada ainda. Jogue para ver seu histórico!</div>' : 
-                            this.generateHistoryList(history)
+                        ${playerHistory.length === 0 ? 
+                            '<div class="empty-history">🎯 Nenhuma partida registrada ainda.<br><br>Jogue uma partida para ver seu histórico!</div>' : 
+                            this.generateHistoryList(playerHistory)
                         }
                     </div>
                     
                     <div class="history-actions">
-                        ${history.length > 0 ? 
-                            `<button onclick="window.memoryGame.clearGameHistoryWithConfirmation()" class="btn btn-danger">
-                                🗑️ Limpar Histórico
+                        ${playerHistory.length > 0 ? 
+                            `<button onclick="window.memoryGame.clearIndividualHistory()" class="btn btn-danger">
+                                🗑️ Limpar Meu Histórico
                             </button>` : 
                             ''
                         }
+                        <button onclick="window.memoryGame.showGlobalRanking()" class="btn btn-warning">
+                            🏆 Ver Ranking Global
+                        </button>
                         <button onclick="window.memoryGame.closeHistory()" class="btn btn-ghost">
                             Voltar ao Jogo
                         </button>
@@ -838,14 +928,157 @@ class MemoryGame {
         document.body.insertAdjacentHTML('beforeend', historyHTML);
     }
 
-    // ✅ FUNÇÃO AUXILIAR PARA CONFIRMAR LIMPEZA DO HISTÓRICO
-    clearGameHistoryWithConfirmation() {
-        if (confirm('Tem certeza que deseja limpar todo o histórico de partidas? Esta ação não pode ser desfeita.')) {
-            this.clearGameHistory();
+    // ✅ NOVA FUNÇÃO PARA MOSTRAR RANKING GLOBAL
+    showGlobalRanking() {
+        const ranking = this.getGlobalRanking();
+        
+        // Fechar overlays existentes
+        this.closeHistory();
+        const victoryOverlay = document.querySelector('.victory-overlay');
+        if (victoryOverlay) victoryOverlay.remove();
+        
+        const rankingHTML = `
+            <div class="ranking-overlay">
+                <div class="ranking-card">
+                    <div class="ranking-header">
+                        <h2>🏆 Ranking Global</h2>
+                        <button class="btn-close" onclick="window.memoryGame.closeRanking()" aria-label="Fechar ranking">
+                            ×
+                        </button>
+                    </div>
+                    
+                    <div class="ranking-filters">
+                        <button class="filter-btn active" data-filter="all">Todos</button>
+                        <button class="filter-btn" data-filter="easy">Fácil</button>
+                        <button class="filter-btn" data-filter="medium">Médio</button>
+                        <button class="filter-btn" data-filter="hard">Difícil</button>
+                    </div>
+                    
+                    <div class="ranking-content">
+                        ${ranking.length === 0 ? 
+                            '<div class="empty-ranking">🎯 Nenhuma pontuação no ranking ainda.<br><br>Seja o primeiro a entrar no ranking!</div>' : 
+                            this.generateRankingList(ranking, 'all')
+                        }
+                    </div>
+                    
+                    <div class="ranking-stats">
+                        <div class="stat">
+                            <span class="stat-value">${ranking.length}</span>
+                            <span class="stat-label">Jogadores</span>
+                        </div>
+                        <div class="stat">
+                            <span class="stat-value">${ranking[0]?.score || 0}</span>
+                            <span class="stat-label">Recorde</span>
+                        </div>
+                        <div class="stat">
+                            <span class="stat-value">${this.getPlayerRank(ranking) || '-'}</span>
+                            <span class="stat-label">Sua Posição</span>
+                        </div>
+                    </div>
+                    
+                    <div class="ranking-actions">
+                        <button onclick="window.memoryGame.closeRanking()" class="btn btn-ghost">
+                            Fechar
+                        </button>
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        document.body.insertAdjacentHTML('beforeend', rankingHTML);
+        this.setupRankingFilters();
+    }
+
+    // ✅ FUNÇÃO PARA LIMPAR HISTÓRICO INDIVIDUAL
+    clearIndividualHistory() {
+        if (confirm('Tem certeza que deseja limpar seu histórico individual?\n\nEsta ação não pode ser desfeita.')) {
+            try {
+                const history = this.getGameHistory();
+                const filteredHistory = history.filter(game => game.playerName !== this.playerName);
+                localStorage.setItem('memoryGameHistory', JSON.stringify(filteredHistory));
+                this.closeHistory();
+                this.showNotification('Seu histórico foi limpo!', 'success');
+                setTimeout(() => this.showHistory(), 500);
+            } catch (error) {
+                this.showNotification('Erro ao limpar histórico', 'error');
+            }
         }
     }
 
-    // ✅ GERAR LISTA DE HISTÓRICO
+    // ✅ FUNÇÕES AUXILIARES PARA RANKING
+    generateRankingList(ranking, filter = 'all') {
+        const filteredRanking = filter === 'all' 
+            ? ranking 
+            : ranking.filter(entry => entry.difficulty === filter);
+            
+        return `
+            <div class="ranking-list">
+                ${filteredRanking.slice(0, 20).map((player, index) => `
+                    <div class="ranking-item ${player.playerName === this.playerName ? 'current-player' : ''} ${index < 3 ? `top-${index + 1}` : ''}">
+                        <div class="ranking-position">
+                            ${this.getRankingMedal(index + 1)}
+                        </div>
+                        <div class="ranking-player-info">
+                            <div class="player-name">
+                                ${player.playerName}
+                                ${player.playerName === this.playerName ? '<span class="you-badge">Você</span>' : ''}
+                            </div>
+                            <div class="player-stats">
+                                <span>${player.moves} jogadas</span>
+                                <span>•</span>
+                                <span>${player.time}</span>
+                                <span>•</span>
+                                <span>${this.getDifficultyName(player.difficulty)}</span>
+                            </div>
+                        </div>
+                        <div class="ranking-score">
+                            ${player.score}
+                            <span>pts</span>
+                        </div>
+                    </div>
+                `).join('')}
+            </div>
+        `;
+    }
+
+    getRankingMedal(position) {
+        switch(position) {
+            case 1: return '🥇';
+            case 2: return '🥈';
+            case 3: return '🥉';
+            default: return `#${position}`;
+        }
+    }
+
+    getPlayerRank(ranking) {
+        const playerIndex = ranking.findIndex(player => player.playerName === this.playerName);
+        return playerIndex !== -1 ? playerIndex + 1 : null;
+    }
+
+    setupRankingFilters() {
+        const filterButtons = document.querySelectorAll('.filter-btn');
+        const rankingContent = document.querySelector('.ranking-content');
+        const ranking = this.getGlobalRanking();
+        
+        filterButtons.forEach(btn => {
+            btn.addEventListener('click', () => {
+                filterButtons.forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                
+                const filter = btn.dataset.filter;
+                rankingContent.innerHTML = this.generateRankingList(ranking, filter);
+            });
+        });
+    }
+
+    closeRanking() {
+        const rankingOverlay = document.querySelector('.ranking-overlay');
+        if (rankingOverlay) {
+            rankingOverlay.remove();
+        }
+    }
+
+    // ✅ FUNÇÕES AUXILIARES EXISTENTES
     generateHistoryList(history) {
         return `
             <div class="history-list">
@@ -876,7 +1109,6 @@ class MemoryGame {
         `;
     }
 
-    // ✅ FUNÇÃO AUXILIAR PARA NOME DA DIFICULDADE
     getDifficultyName(difficulty) {
         const names = {
             easy: 'Fácil',
@@ -886,7 +1118,6 @@ class MemoryGame {
         return names[difficulty] || difficulty;
     }
 
-    // ✅ FUNÇÃO AUXILIAR PARA FORMATAR DATA
     formatDate(dateString) {
         const date = new Date(dateString);
         return date.toLocaleDateString('pt-BR', {
@@ -898,7 +1129,6 @@ class MemoryGame {
         });
     }
 
-    // ✅ FECHAR HISTÓRICO
     closeHistory() {
         const historyOverlay = document.querySelector('.history-overlay');
         if (historyOverlay) {
@@ -935,6 +1165,11 @@ class MemoryGame {
         const historyOverlay = document.querySelector('.history-overlay');
         if (historyOverlay) {
             historyOverlay.remove();
+        }
+
+        const rankingOverlay = document.querySelector('.ranking-overlay');
+        if (rankingOverlay) {
+            rankingOverlay.remove();
         }
         
         this.stopTimer();

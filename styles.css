@@ -139,6 +139,16 @@ img {
   line-height: 1.4;
 }
 
+.welcome-message {
+  background: var(--glass);
+  padding: 8px 16px;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  margin-top: 8px;
+  display: inline-block;
+  animation: fadeIn 0.5s ease;
+}
+
 /* Actions (botões) */
 .actions {
   display: flex;
@@ -184,6 +194,17 @@ img {
   transform: translateY(-1px);
 }
 
+.btn-warning {
+  background: var(--warning);
+  color: white;
+  border: none;
+}
+
+.btn-warning:hover {
+  background: #e69500;
+  transform: translateY(-1px);
+}
+
 .btn-danger {
   background: var(--danger);
   color: white;
@@ -212,6 +233,114 @@ img {
 a:focus {
   outline: 3px solid rgba(15,98,254,0.18);
   outline-offset: 3px;
+}
+
+/* -------------------------
+   Sistema de Login
+   ------------------------- */
+.login-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(135deg, var(--accent), var(--accent-700));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 4000;
+  padding: 20px;
+  animation: fadeIn 0.5s ease;
+}
+
+.login-card {
+  background: var(--surface);
+  border-radius: 20px;
+  padding: 40px;
+  max-width: 450px;
+  width: 100%;
+  text-align: center;
+  box-shadow: 0 25px 80px rgba(2, 6, 23, 0.3);
+  animation: scaleIn 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+.login-header {
+  margin-bottom: 32px;
+}
+
+.login-icon {
+  font-size: 4rem;
+  margin-bottom: 16px;
+  animation: bounce 2s infinite;
+}
+
+.login-header h2 {
+  margin: 0 0 8px 0;
+  color: var(--text);
+  font-size: 1.8rem;
+}
+
+.login-header p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 1.1rem;
+}
+
+.login-form {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.input-group {
+  text-align: left;
+}
+
+.input-group label {
+  display: block;
+  margin-bottom: 8px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.input-group input {
+  width: 100%;
+  padding: 12px 16px;
+  border: 2px solid var(--glass);
+  border-radius: 10px;
+  font-size: 1rem;
+  transition: all 0.2s ease;
+  background: var(--surface);
+  color: var(--text);
+}
+
+.input-group input:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(15, 98, 254, 0.1);
+}
+
+.input-hint {
+  font-size: 0.8rem;
+  color: var(--muted);
+  margin-top: 4px;
+}
+
+.login-features {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 20px;
+  padding-top: 20px;
+  border-top: 1px solid var(--glass);
+}
+
+.feature {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 0.9rem;
+  color: var(--muted);
 }
 
 /* -------------------------
@@ -820,10 +949,32 @@ a:focus {
 .rating-value.average { color: #8b5cf6; }
 .rating-value.practice { color: var(--muted); }
 
+.ranking-info {
+  margin-bottom: 24px;
+  padding: 16px;
+  background: rgba(245, 158, 11, 0.1);
+  border-radius: 12px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.ranking-label {
+  font-size: 0.9rem;
+  color: var(--muted);
+}
+
+.ranking-position {
+  font-size: 1.4rem;
+  font-weight: bold;
+  color: var(--warning);
+}
+
 .victory-actions {
   display: flex;
   gap: 12px;
   justify-content: center;
+  flex-wrap: wrap;
 }
 
 .victory-btn {
@@ -1051,6 +1202,232 @@ a:focus {
   border-top: 1px solid var(--glass);
 }
 
+/* -------------------------
+   Sistema de Ranking Global
+   ------------------------- */
+.ranking-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(15, 23, 36, 0.95);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 3000;
+  padding: 20px;
+  backdrop-filter: blur(5px);
+  animation: fadeIn 0.3s ease;
+}
+
+.ranking-card {
+  background: var(--surface);
+  border-radius: 20px;
+  padding: 0;
+  max-width: 700px;
+  width: 100%;
+  max-height: 80vh;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 25px 80px rgba(2, 6, 23, 0.3);
+  animation: scaleIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+.ranking-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 24px;
+  border-bottom: 1px solid var(--glass);
+}
+
+.ranking-header h2 {
+  margin: 0;
+  color: var(--text);
+  font-size: 1.5rem;
+}
+
+.ranking-filters {
+  display: flex;
+  gap: 8px;
+  padding: 16px 24px;
+  border-bottom: 1px solid var(--glass);
+  flex-wrap: wrap;
+}
+
+.filter-btn {
+  padding: 8px 16px;
+  border: 1px solid var(--glass);
+  background: transparent;
+  border-radius: 20px;
+  cursor: pointer;
+  font-size: 0.85rem;
+  transition: all 0.2s ease;
+  color: var(--muted);
+}
+
+.filter-btn:hover {
+  background: var(--glass);
+  color: var(--text);
+}
+
+.filter-btn.active {
+  background: var(--accent);
+  color: white;
+  border-color: var(--accent);
+}
+
+.ranking-content {
+  flex: 1;
+  overflow-y: auto;
+  padding: 0 24px;
+  max-height: 400px;
+}
+
+.ranking-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 16px 0;
+}
+
+.ranking-item {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 16px;
+  background: var(--glass);
+  border-radius: 12px;
+  transition: all 0.2s ease;
+  animation: slideInUp 0.3s ease;
+}
+
+.ranking-item.current-player {
+  background: rgba(15, 98, 254, 0.08);
+  border-left: 4px solid var(--accent);
+}
+
+.ranking-item.top-1 {
+  background: linear-gradient(135deg, rgba(245, 158, 11, 0.1), transparent);
+  border-left: 4px solid var(--warning);
+}
+
+.ranking-item.top-2 {
+  background: linear-gradient(135deg, rgba(107, 114, 128, 0.1), transparent);
+  border-left: 4px solid var(--muted);
+}
+
+.ranking-item.top-3 {
+  background: linear-gradient(135deg, rgba(180, 83, 9, 0.1), transparent);
+  border-left: 4px solid #b45309;
+}
+
+.ranking-position {
+  font-size: 1.2rem;
+  font-weight: bold;
+  min-width: 50px;
+  text-align: center;
+}
+
+.ranking-player-info {
+  flex: 1;
+}
+
+.player-name {
+  font-weight: 600;
+  margin-bottom: 4px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.you-badge {
+  background: var(--accent);
+  color: white;
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-size: 0.7rem;
+  font-weight: normal;
+}
+
+.player-stats {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.8rem;
+  color: var(--muted);
+  flex-wrap: wrap;
+}
+
+.ranking-score {
+  font-size: 1.3rem;
+  font-weight: bold;
+  color: var(--accent);
+  text-align: right;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+}
+
+.ranking-score span {
+  font-size: 0.7rem;
+  color: var(--muted);
+  font-weight: normal;
+}
+
+.ranking-stats {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+  padding: 20px 24px;
+  border-top: 1px solid var(--glass);
+  background: var(--glass);
+}
+
+.stat {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+
+.stat-value {
+  font-size: 1.4rem;
+  font-weight: bold;
+  color: var(--accent);
+}
+
+.stat-label {
+  font-size: 0.8rem;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.ranking-actions {
+  display: flex;
+  gap: 12px;
+  justify-content: flex-end;
+  padding: 24px;
+  border-top: 1px solid var(--glass);
+}
+
+.empty-ranking {
+  text-align: center;
+  padding: 60px 20px;
+  color: var(--muted);
+  font-size: 1.1rem;
+  line-height: 1.6;
+}
+
+.empty-ranking::before {
+  content: "🏆";
+  font-size: 3rem;
+  display: block;
+  margin-bottom: 16px;
+}
+
 /* Notificações */
 .notification {
   position: fixed;
@@ -1264,6 +1641,41 @@ a:focus {
   .history-actions {
     flex-direction: column;
   }
+  
+  /* Ranking responsivo */
+  .ranking-card {
+    max-height: 90vh;
+    margin: 20px;
+  }
+  
+  .ranking-item {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+  }
+  
+  .ranking-position {
+    align-self: flex-start;
+  }
+  
+  .ranking-score {
+    align-self: flex-end;
+  }
+  
+  .player-stats {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 4px;
+  }
+  
+  .ranking-stats {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+  
+  .ranking-actions {
+    flex-direction: column;
+  }
 }
 
 @media (max-width: 540px) {
@@ -1377,6 +1789,19 @@ a:focus {
     flex-direction: column;
     align-items: flex-start;
     gap: 8px;
+  }
+  
+  /* Login mobile */
+  .login-card {
+    padding: 24px 20px;
+  }
+  
+  .login-header h2 {
+    font-size: 1.5rem;
+  }
+  
+  .login-icon {
+    font-size: 3rem;
   }
 }
 
