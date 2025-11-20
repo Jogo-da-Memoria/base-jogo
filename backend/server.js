@@ -7,18 +7,36 @@ require('dotenv').config();
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// Middleware
-app.use(helmet());
-app.use(cors());
+// ✅ MIDDLEWARE CORRIGIDO
+app.use(helmet({
+    contentSecurityPolicy: false // Desabilita CSP para evitar conflitos
+}));
+
+// ✅ CORS CONFIGURADO PARA PRODUÇÃO
+app.use(cors({
+    origin: [
+        'https://seu-site.netlify.app', // SEU SITE NO NETLIFY
+        'http://localhost:3000',
+        'http://127.0.0.1:3000'
+    ],
+    credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'DELETE'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'Accept']
+}));
+
 app.use(express.json());
-app.use(express.static('../frontend'));
+
+// ✅ REMOVIDO: app.use(express.static('../frontend')); // Isso causa problemas
 
 // Conexão com MongoDB
 const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/memory-game';
+
 mongoose.connect(MONGODB_URI, {
     useNewUrlParser: true,
     useUnifiedTopology: true,
-});
+})
+.then(() => console.log('✅ Conectado ao MongoDB'))
+.catch(err => console.error('❌ Erro ao conectar MongoDB:', err));
 
 // Model do Ranking
 const rankingSchema = new mongoose.Schema({
@@ -29,10 +47,18 @@ const rankingSchema = new mongoose.Schema({
     difficulty: { type: String, required: true },
     efficiency: { type: Number, required: true },
     date: { type: Date, default: Date.now },
-    ip: { type: String } // Para prevenir spam
+    ip: { type: String }
 });
 
 const Ranking = mongoose.model('Ranking', rankingSchema);
+
+// ✅ ROTA DE TESTE
+app.get('/', (req, res) => {
+    res.json({ 
+        message: '🚀 API do Jogo da Memória funcionando!',
+        timestamp: new Date().toISOString()
+    });
+});
 
 // Rotas da API
 app.get('/api/ranking/global', async (req, res) => {
@@ -44,6 +70,7 @@ app.get('/api/ranking/global', async (req, res) => {
         
         res.json(rankings);
     } catch (error) {
+        console.error('Erro ao buscar ranking global:', error);
         res.status(500).json({ error: 'Erro ao buscar ranking global' });
     }
 });
@@ -58,6 +85,7 @@ app.get('/api/ranking/player/:playerName', async (req, res) => {
         
         res.json(rankings);
     } catch (error) {
+        console.error('Erro ao buscar ranking do jogador:', error);
         res.status(500).json({ error: 'Erro ao buscar ranking do jogador' });
     }
 });
@@ -101,16 +129,33 @@ app.post('/api/ranking', async (req, res) => {
         res.status(201).json({ message: 'Pontuação salva com sucesso!' });
         
     } catch (error) {
+        console.error('Erro ao salvar pontuação:', error);
         res.status(500).json({ error: 'Erro ao salvar pontuação' });
     }
 });
 
 // Health check
 app.get('/api/health', (req, res) => {
-    res.json({ status: 'OK', timestamp: new Date().toISOString() });
+    res.json({ 
+        status: 'OK', 
+        timestamp: new Date().toISOString(),
+        environment: process.env.NODE_ENV || 'development'
+    });
+});
+
+// ✅ MIDDLEWARE DE ERRO
+app.use((err, req, res, next) => {
+    console.error('Erro não tratado:', err);
+    res.status(500).json({ error: 'Erro interno do servidor' });
+});
+
+// ✅ ROTA 404
+app.use('*', (req, res) => {
+    res.status(404).json({ error: 'Rota não encontrada' });
 });
 
 app.listen(PORT, () => {
     console.log(`🚀 Servidor rodando na porta ${PORT}`);
-    console.log(`📊 API disponível em: http://localhost:${PORT}/api`);
+    console.log(`📊 API disponível em: http://localhost:${PORT}`);
+    console.log(`🌐 Ambiente: ${process.env.NODE_ENV || 'development'}`);
 });
