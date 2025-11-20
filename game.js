@@ -18,7 +18,7 @@ class MemoryGame {
 
         // ✅ CONFIGURAÇÃO COMPLETA DO JSONBIN
         this.jsonBinConfig = {
-            binId: '691f83b443b1c97be9ba5232',
+            binId: '691f9eee43b1c97be9ba70c1',
             apiKey: '$2a$10$MadCefOfSTPt.k3y99.HfOseVkFhg3rCCnjMbFVzbF/ouRAQpGUKO',
             baseUrl: 'https://api.jsonbin.io/v3/b'
         };
