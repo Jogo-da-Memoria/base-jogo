@@ -603,36 +603,47 @@ class MemoryGame {
         }
     }
 
-    // ✅ BUSCAR RANKING DO JSONBIN - VERSÃO CORRIGIDA
-    async fetchGlobalRanking() {
-        try {
-            console.log('🌐 Buscando ranking global...');
-            
-            // ✅ CORREÇÃO: Usar X-Master-Key em vez de X-Access-Key
-            const response = await fetch(`${this.jsonBinConfig.baseUrl}/${this.jsonBinConfig.binId}/latest`, {
-                headers: {
-                    'X-Master-Key': this.jsonBinConfig.apiKey,
-                    'Content-Type': 'application/json'
-                }
-            });
-
-            if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
+    // ✅ BUSCAR RANKING DO JSONBIN - VERSÃO MELHORADA
+async fetchGlobalRanking() {
+    try {
+        console.log('🌐 Buscando ranking global...');
+        
+        const response = await fetch(`${this.jsonBinConfig.baseUrl}/${this.jsonBinConfig.binId}/latest`, {
+            headers: {
+                'X-Master-Key': this.jsonBinConfig.apiKey,
+                'Content-Type': 'application/json'
             }
-            
-            const data = await response.json();
-            console.log('🔍 DEBUG - Dados completos:', data);
-            
-            // ✅ EXTRAIR O ARRAY ranking DO OBJETO
-            const ranking = data.record?.ranking || [];
-            console.log('✅ Ranking carregado:', ranking.length, 'jogadores');
-            return ranking;
-            
-        } catch (error) {
-            console.warn('❌ Erro ao buscar ranking online:', error);
-            return this.getLocalRankingFallback();
+        });
+
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
         }
+        
+        const data = await response.json();
+        console.log('🔍 DEBUG - Dados completos:', data);
+        
+        // ✅ VERIFICAÇÃO ROBUSTA DA ESTRUTURA
+        let ranking = [];
+        
+        if (data.record && Array.isArray(data.record.ranking)) {
+            ranking = data.record.ranking;
+        } else if (data.record && typeof data.record === 'object') {
+            // Se o record é um objeto mas não tem array ranking, criar estrutura
+            console.warn('⚠️ Estrutura incompleta detectada, criando ranking vazio...');
+            ranking = [];
+        } else {
+            console.warn('⚠️ Estrutura inválida, usando fallback...');
+            ranking = this.getLocalRankingFallback();
+        }
+        
+        console.log('✅ Ranking carregado:', ranking.length, 'jogadores');
+        return ranking;
+        
+    } catch (error) {
+        console.warn('❌ Erro ao buscar ranking online:', error);
+        return this.getLocalRankingFallback();
     }
+}
 
     // ✅ SALVAR NO RANKING ONLINE
     async saveToGlobalRanking(gameData) {
