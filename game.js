@@ -16,12 +16,12 @@ class MemoryGame {
         this.soundEnabled = true;
         this.playerName = '';
 
-        // ✅ CONFIGURAÇÃO CORRIGIDA DO JSONBIN
+        // ✅ CONFIGURAÇÃO COMPLETA DO JSONBIN
         this.jsonBinConfig = {
-            binId: '691f83b443b1c97be9ba5232', // ✅ SEU NOVO BIN ID FUNCIONAL
-            apiKey: '$2a$10$qoDApeLTfaYPrEIhIuF4SuAHe4a3ZDuFdP1n8/.bVGtovamXLjlBO',
+            binId: '691f83b443b1c97be9ba5232',
+            apiKey: '$2a$10$MadCefOfSTPt.k3y99.HfOseVkFhg3rCCnjMbFVzbF/ouRAQpGUKO',
             baseUrl: 'https://api.jsonbin.io/v3/b'
-        }; // ✅ VÍRGULA ADICIONADA AQUI!
+        };
 
         // Configurações de dificuldade
         this.difficultySettings = {
@@ -608,9 +608,10 @@ class MemoryGame {
         try {
             console.log('🌐 Buscando ranking global...');
             
+            // ✅ CORREÇÃO: Usar X-Master-Key em vez de X-Access-Key
             const response = await fetch(`${this.jsonBinConfig.baseUrl}/${this.jsonBinConfig.binId}/latest`, {
                 headers: {
-                    'X-Access-Key': this.jsonBinConfig.apiKey,
+                    'X-Master-Key': this.jsonBinConfig.apiKey,
                     'Content-Type': 'application/json'
                 }
             });
@@ -703,17 +704,20 @@ class MemoryGame {
 
         console.log('💾 Enviando para JSONBin:', dataToUpdate);
 
+        // ✅ CORREÇÃO: Usar X-Master-Key em vez de X-Access-Key
         const response = await fetch(`${this.jsonBinConfig.baseUrl}/${this.jsonBinConfig.binId}`, {
             method: 'PUT',
             headers: {
-                'X-Access-Key': this.jsonBinConfig.apiKey,
+                'X-Master-Key': this.jsonBinConfig.apiKey,
                 'Content-Type': 'application/json'
             },
             body: JSON.stringify(dataToUpdate)
         });
 
         if (!response.ok) {
-            throw new Error(`Falha ao atualizar: ${response.status}`);
+            const errorText = await response.text();
+            console.error('❌ Erro detalhado:', errorText);
+            throw new Error(`Falha ao atualizar: ${response.status} - ${errorText}`);
         }
         
         const result = await response.json();
