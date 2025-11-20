@@ -1,3 +1,4 @@
+
 // game.js - Sistema Completo com Ranking Híbrido (Funciona Online/Offline)
 class RankingManager {
     constructor() {
@@ -133,6 +134,7 @@ class RankingManager {
     }
 }
 
+
 class MemoryGame {
     constructor() {
         this.cards = [];
@@ -149,10 +151,14 @@ class MemoryGame {
         this.multiplier = 1;
         this.soundEnabled = true;
         this.playerName = '';
-        this.rankingSubmitted = false;
 
-        // ✅ ADICIONADO: Gerenciador de Ranking Híbrido
-        this.rankingManager = new RankingManager();
+
+// ✅ CONFIGURAÇÃO CORRIGIDA DO JSONBIN
+this.jsonBinConfig = {
+    binId: '691f83b443b1c97be9ba5232', // ✅ SEU NOVO BIN ID FUNCIONAL
+    apiKey: '$2a$10$qoDApeLTfaYPrEIhIuF4SuAHe4a3ZDuFdP1n8/.bVGtovamXLjlBO',
+    baseUrl: 'https://api.jsonbin.io/v3/b'
+};
 
         // Configurações de dificuldade
         this.difficultySettings = {
@@ -187,10 +193,17 @@ class MemoryGame {
             click: document.getElementById('clickSound')
         };
 
-        this.init();
+        this.init(); 
     }
 
     async init() {
+        // ✅ VERIFICAR SE O JOGADOR ESTÁ LOGADO
+        this.playerName = localStorage.getItem('memoryGamePlayer');
+        if (!this.playerName) {
+            window.location.href = 'index.html';
+            return;
+        }
+
         await this.preloadSounds();
         this.setupEventListeners();
         this.showDifficultySelection();
@@ -261,6 +274,14 @@ class MemoryGame {
         });
 
         this.setupHapticFeedback();
+        
+        // ✅ ADICIONAR EVENT LISTENER PARA FECHAR HISTÓRICO COM ESC
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') {
+                this.closeHistory();
+                this.closeRanking();
+            }
+        });
     }
 
     updateSoundButton() {
@@ -290,7 +311,26 @@ class MemoryGame {
         }
     }
 
+    // ✅ ATUALIZAR A FUNÇÃO showDifficultySelection PARA LIMPAR OVERLAY
     showDifficultySelection() {
+        // Fechar overlay de vitória se existir
+        const victoryOverlay = document.querySelector('.victory-overlay');
+        if (victoryOverlay) {
+            victoryOverlay.remove();
+        }
+        
+        // Fechar overlay de histórico se existir
+        const historyOverlay = document.querySelector('.history-overlay');
+        if (historyOverlay) {
+            historyOverlay.remove();
+        }
+
+        // Fechar overlay de ranking se existir
+        const rankingOverlay = document.querySelector('.ranking-overlay');
+        if (rankingOverlay) {
+            rankingOverlay.remove();
+        }
+        
         document.getElementById('difficultySection').style.display = 'block';
         document.getElementById('gameSection').style.display = 'none';
         this.restartBtn.style.display = 'none';
@@ -299,6 +339,10 @@ class MemoryGame {
         document.querySelectorAll('.difficulty-option').forEach(opt => {
             opt.classList.remove('selected');
         });
+        
+        // Parar timer se estiver rodando
+        this.stopTimer();
+        this.gameStarted = false;
     }
 
     startGame(difficulty) {
@@ -871,6 +915,218 @@ class MemoryGame {
         this.showDifficultySelection();
     }
 
+    // ✅ SISTEMA DE RANKING GLOBAL COM JSONBIN
+    async saveGameHistory(finalScore, gameTime, difficulty) {
+        try {
+            const gameData = {
+                playerName: this.playerName,
+                score: finalScore,
+                time: gameTime,
+                moves: this.moves,
+                difficulty: difficulty,
+                efficiency: this.totalPairs > 0 ? 
+                    Math.round((this.matchedPairs / this.moves) * 100) || 0 : 0,
+                date: new Date().toISOString()
+            };
+
+            // 1. Salvar localmente
+            const history = this.getGameHistory();
+            history.unshift(gameData);
+            const limitedHistory = history.slice(0, 50);
+            localStorage.setItem('memoryGameHistory', JSON.stringify(limitedHistory));
+
+            // 2. ✅ SALVAR NO RANKING GLOBAL ONLINE
+            await this.saveToGlobalRanking(gameData);
+            
+            console.log('🎉 Dados salvos no ranking global!');
+            
+        } catch (error) {
+            console.error('Erro ao salvar histórico:', error);
+        }
+    }
+
+    // ✅ BUSCAR RANKING DO JSONBIN - VERSÃO CORRIGIDA
+async fetchGlobalRanking() {
+    try {
+        console.log('🌐 Buscando ranking global...');
+        
+        const response = await fetch(`${this.jsonBinConfig.baseUrl}/${this.jsonBinConfig.binId}/latest`, {
+            headers: {
+                'X-Access-Key': this.jsonBinConfig.apiKey,
+                'Content-Type': 'application/json'
+            }
+        });
+
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        
+        const data = await response.json();
+        console.log('🔍 DEBUG - Dados completos:', data);
+        
+        // ✅ EXTRAIR O ARRAY ranking DO OBJETO
+        const ranking = data.record?.ranking || [];
+        console.log('✅ Ranking carregado:', ranking.length, 'jogadores');
+        return ranking;
+        
+    } catch (error) {
+        console.warn('❌ Erro ao buscar ranking online:', error);
+        return this.getLocalRankingFallback();
+    }
+}
+
+    // ✅ SALVAR NO RANKING ONLINE
+    async saveToGlobalRanking(gameData) {
+        try {
+            console.log('💾 Salvando no ranking global...', gameData);
+            
+            // Buscar ranking atual
+            const currentRanking = await this.fetchGlobalRanking();
+            
+            // Encontrar jogador existente
+            const playerIndex = currentRanking.findIndex(player => 
+                player.playerName === gameData.playerName && 
+                player.difficulty === gameData.difficulty
+            );
+
+            if (playerIndex !== -1) {
+                // Atualizar se score for maior
+                if (gameData.score > currentRanking[playerIndex].score) {
+                    currentRanking[playerIndex] = {
+                        ...currentRanking[playerIndex],
+                        ...gameData,
+                        date: new Date().toISOString()
+                    };
+                    console.log('🔄 Pontuação atualizada para:', gameData.playerName);
+                } else {
+                    console.log('ℹ️  Pontuação mantida para:', gameData.playerName);
+                    return true;
+                }
+            } else {
+                // Adicionar novo jogador
+                currentRanking.push({
+                    ...gameData,
+                    date: new Date().toISOString()
+                });
+                console.log('👤 Novo jogador adicionado:', gameData.playerName);
+            }
+
+            // Ordenar por score (maior primeiro)
+            currentRanking.sort((a, b) => b.score - a.score);
+            
+            // Manter apenas top 100
+            const limitedRanking = currentRanking.slice(0, 100);
+            
+            // Salvar no JSONBin
+            await this.updateJsonBin(limitedRanking);
+            
+            console.log('✅ Ranking atualizado com sucesso!');
+            return true;
+            
+        } catch (error) {
+            console.error('❌ Erro ao salvar ranking global:', error);
+            this.showNotification('Erro ao conectar com ranking global', 'error');
+            return false;
+        }
+    }
+
+    // ✅ ATUALIZAR JSONBIN - VERSÃO CORRIGIDA
+async updateJsonBin(ranking) {
+    // ✅ ENVIAR OBJETO COMPLETO (igual ao do JSONBin)
+    const dataToUpdate = {
+        ranking: ranking,
+        metadata: {
+            totalPlayers: ranking.length,
+            lastUpdated: new Date().toISOString(),
+            gameVersion: "1.0.0",
+            maxRankingSize: 100
+        }
+    };
+
+    console.log('💾 Enviando para JSONBin:', dataToUpdate);
+
+    const response = await fetch(`${this.jsonBinConfig.baseUrl}/${this.jsonBinConfig.binId}`, {
+        method: 'PUT',
+        headers: {
+            'X-Access-Key': this.jsonBinConfig.apiKey,
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(dataToUpdate)
+    });
+
+    if (!response.ok) {
+        throw new Error(`Falha ao atualizar: ${response.status}`);
+    }
+    
+    const result = await response.json();
+    console.log('✅ JSONBin atualizado com sucesso!');
+    return result;
+}
+
+    // ✅ FALLBACK LOCAL SE INTERNET FALHAR
+    getLocalRankingFallback() {
+        try {
+            return JSON.parse(localStorage.getItem('memoryGameGlobalRanking') || '[]');
+        } catch {
+            return [];
+        }
+    }
+
+    getGameHistory() {
+        try {
+            const history = localStorage.getItem('memoryGameHistory');
+            return history ? JSON.parse(history) : [];
+        } catch (error) {
+            console.error('Erro ao recuperar histórico:', error);
+            return [];
+        }
+    }
+
+    clearGameHistory() {
+        try {
+            localStorage.removeItem('memoryGameHistory');
+            this.showNotification('Histórico limpo com sucesso!', 'success');
+            const historyOverlay = document.querySelector('.history-overlay');
+            if (historyOverlay) {
+                this.showHistory();
+            }
+            return true;
+        } catch (error) {
+            console.error('Erro ao limpar histórico:', error);
+            this.showNotification('Erro ao limpar histórico', 'error');
+            return false;
+        }
+    }
+
+    showNotification(message, type = 'info') {
+        const notification = document.createElement('div');
+        notification.className = `notification notification-${type}`;
+        notification.textContent = message;
+        notification.style.cssText = `
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: ${type === 'success' ? 'var(--success)' : type === 'error' ? 'var(--danger)' : 'var(--accent)'};
+            color: white;
+            padding: 12px 20px;
+            border-radius: 8px;
+            z-index: 3000;
+            animation: slideInRight 0.3s ease;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+        `;
+        
+        document.body.appendChild(notification);
+        
+        setTimeout(() => {
+            notification.style.animation = 'slideOutRight 0.3s ease';
+            setTimeout(() => {
+                if (notification.parentNode) {
+                    document.body.removeChild(notification);
+                }
+            }, 300);
+        }, 3000);
+    }
+
     endGame() {
         this.stopTimer();
         this.gameStarted = false;
@@ -883,10 +1139,9 @@ class MemoryGame {
         const finalScore = this.calculateFinalScore();
         const gameTime = this.timer.textContent;
         
-        // ✅ SALVAR NO HISTÓRICO
-        this.saveGameToHistory(finalScore, gameTime, this.moves, this.currentDifficulty);
+        // ✅ SALVAR NO HISTÓRICO E RANKING
+        this.saveGameHistory(finalScore, gameTime, this.currentDifficulty);
         
-        // ✅ MOSTRAR MODAL DE NOME
         setTimeout(() => {
             this.showNameModal(finalScore, gameTime);
         }, 1500);
@@ -930,7 +1185,8 @@ class MemoryGame {
         return colors[Math.floor(Math.random() * colors.length)];
     }
 
-    showVictoryMessage(finalScore, gameTime, showRanking = false) {
+    // ✅ VICTORY MESSAGE ATUALIZADA
+    showVictoryMessage(finalScore, gameTime) {
         const performance = this.calculatePerformance();
         
         const victoryHTML = `
@@ -938,7 +1194,7 @@ class MemoryGame {
                 <div class="victory-card">
                     <div class="victory-header">
                         <div class="victory-icon">🎉</div>
-                        <h2>Parabéns!</h2>
+                        <h2>Parabéns, ${this.playerName}!</h2>
                         <p>Você completou o jogo!</p>
                     </div>
                     
@@ -980,14 +1236,17 @@ class MemoryGame {
                     ` : ''}
 
                     <div class="victory-actions">
-                        <button onclick="window.memoryGame.restartGame()" class="btn btn-primary victory-btn">
+                        <button class="btn btn-primary victory-btn" data-action="restart">
                             🎮 Jogar Novamente
                         </button>
-                        <button onclick="window.memoryGame.changeDifficulty()" class="btn btn-ghost victory-btn">
-                            🎯 Nova Dificuldade
+                        <button class="btn btn-secondary victory-btn" data-action="history">
+                            📊 Meu Histórico
                         </button>
-                        <button onclick="window.location.href = 'index.html'" class="btn btn-ghost victory-btn">
-                            🏠 Menu Principal
+                        <button class="btn btn-warning victory-btn" data-action="ranking">
+                            🏆 Ranking Global
+                        </button>
+                        <button class="btn btn-ghost victory-btn" data-action="difficulty">
+                            🔄 Nova Dificuldade
                         </button>
                     </div>
                 </div>
@@ -995,6 +1254,7 @@ class MemoryGame {
         `;
         
         document.body.insertAdjacentHTML('beforeend', victoryHTML);
+        this.setupVictoryButtons();
         
         setTimeout(() => {
             const victoryCard = document.querySelector('.victory-card');
@@ -1003,134 +1263,292 @@ class MemoryGame {
         }, 100);
     }
 
-    // Mostrar tela de ranking
-    async showRanking() {
+    setupVictoryButtons() {
         const victoryOverlay = document.querySelector('.victory-overlay');
-        if (!victoryOverlay) return;
-
-        // Adicionar seção de ranking
-        const rankingSection = document.createElement('div');
-        rankingSection.className = 'ranking-section';
-        rankingSection.innerHTML = `
-            <div class="ranking-tabs">
-                <button class="tab-btn active" data-tab="global">🌍 Ranking Global</button>
-                <button class="tab-btn" data-tab="player">👤 Meu Ranking</button>
-            </div>
-            
-            <div class="tab-content">
-                <div id="globalRanking" class="tab-pane active">
-                    <div class="loading">Carregando ranking...</div>
-                </div>
-                <div id="playerRanking" class="tab-pane">
-                    ${this.playerName ? 
-                        '<div class="loading">Carregando seu ranking...</div>' :
-                        '<p class="no-data">Nome não registrado</p>'
-                    }
-                </div>
-            </div>
-        `;
-
-        victoryOverlay.querySelector('.victory-card').appendChild(rankingSection);
-
-        // Event listeners para tabs
-        rankingSection.querySelectorAll('.tab-btn').forEach(btn => {
-            btn.addEventListener('click', (e) => {
-                const tab = e.target.dataset.tab;
-                this.switchRankingTab(tab);
+        
+        if (victoryOverlay) {
+            victoryOverlay.addEventListener('click', (e) => {
+                const button = e.target.closest('.victory-btn');
+                if (!button) return;
+                
+                const action = button.dataset.action;
+                this.playSound('click');
+                
+                switch (action) {
+                    case 'restart':
+                        this.restartGame();
+                        break;
+                    case 'history':
+                        this.showHistory();
+                        break;
+                    case 'ranking':
+                        this.showGlobalRanking();
+                        break;
+                    case 'difficulty':
+                        this.showDifficultySelection();
+                        break;
+                }
             });
-        });
-
-        // Carregar dados
-        await this.loadAndRenderGlobalRanking();
-        if (this.playerName) {
-            await this.loadAndRenderPlayerRanking();
         }
     }
 
-    async switchRankingTab(tab) {
-        // Atualizar botões ativos
-        document.querySelectorAll('.tab-btn').forEach(btn => {
-            btn.classList.remove('active');
-        });
-        document.querySelector(`[data-tab="${tab}"]`).classList.add('active');
-
-        // Mostrar conteúdo correto
-        document.querySelectorAll('.tab-pane').forEach(pane => {
-            pane.classList.remove('active');
-        });
-        document.getElementById(`${tab}Ranking`).classList.add('active');
-
-        // Carregar dados se necessário
-        if (tab === 'global') {
-            await this.loadAndRenderGlobalRanking();
-        } else if (tab === 'player' && this.playerName) {
-            await this.loadAndRenderPlayerRanking();
-        }
-    }
-
-    async loadAndRenderGlobalRanking() {
-        const container = document.getElementById('globalRanking');
-        container.innerHTML = '<div class="loading">Carregando ranking...</div>';
-
-        const rankings = await this.loadGlobalRanking();
-        this.renderRankingTable(container, rankings, 'global');
-    }
-
-    async loadAndRenderPlayerRanking() {
-        const container = document.getElementById('playerRanking');
-        container.innerHTML = '<div class="loading">Carregando seu ranking...</div>';
-
-        const rankings = await this.loadPlayerRanking(this.playerName);
-        this.renderRankingTable(container, rankings, 'player');
-    }
-
-    renderRankingTable(container, rankings, type) {
-        if (!rankings || rankings.length === 0) {
-            container.innerHTML = '<p class="no-data">Nenhum dado disponível</p>';
-            return;
-        }
-
-        const isGlobal = type === 'global';
+    // ✅ HISTÓRICO INDIVIDUAL
+    showHistory() {
+        const history = this.getGameHistory();
+        const playerHistory = history.filter(game => game.playerName === this.playerName);
         
-        const tableHTML = `
-            <div class="ranking-table">
-                <div class="table-header">
-                    <span>${isGlobal ? 'Pos' : 'Data'}</span>
-                    <span>${isGlobal ? 'Jogador' : 'Desempenho'}</span>
-                    <span>Pontuação</span>
-                    <span>Detalhes</span>
-                </div>
-                <div class="table-body">
-                    ${rankings.map((item, index) => {
-                        const isCurrentPlayer = item.playerName === this.playerName;
-                        return `
-                            <div class="table-row ${isCurrentPlayer ? 'highlight' : ''}">
-                                <span class="rank-cell">
-                                    ${isGlobal ? `#${index + 1}` : new Date(item.date).toLocaleDateString('pt-BR')}
-                                </span>
-                                <span class="player-cell">
-                                    ${isGlobal ? item.playerName : this.getPerformanceRating(item.efficiency).text}
-                                </span>
-                                <span class="score-cell">${item.score}</span>
-                                <span class="details-cell">
-                                    ${item.moves} jogadas • ${item.time} • ${item.difficulty}
-                                </span>
-                            </div>
-                        `;
-                    }).join('')}
+        const victoryOverlay = document.querySelector('.victory-overlay');
+        if (victoryOverlay) {
+            victoryOverlay.remove();
+        }
+        
+        const historyHTML = `
+            <div class="history-overlay">
+                <div class="history-card">
+                    <div class="history-header">
+                        <h2>📊 Meu Histórico - ${this.playerName}</h2>
+                        <button class="btn-close" onclick="window.memoryGame.closeHistory()" aria-label="Fechar histórico">
+                            ×
+                        </button>
+                    </div>
+                    
+                    <div class="history-content">
+                        ${playerHistory.length === 0 ? 
+                            '<div class="empty-history">🎯 Nenhuma partida registrada ainda.<br><br>Jogue uma partida para ver seu histórico!</div>' : 
+                            this.generateHistoryList(playerHistory)
+                        }
+                    </div>
+                    
+                    <div class="history-actions">
+                        ${playerHistory.length > 0 ? 
+                            `<button onclick="window.memoryGame.clearIndividualHistory()" class="btn btn-danger">
+                                🗑️ Limpar Meu Histórico
+                            </button>` : 
+                            ''
+                        }
+                        <button onclick="window.memoryGame.showGlobalRanking()" class="btn btn-warning">
+                            🏆 Ver Ranking Global
+                        </button>
+                        <button onclick="window.memoryGame.closeHistory()" class="btn btn-ghost">
+                            Voltar ao Jogo
+                        </button>
+                    </div>
                 </div>
             </div>
         `;
         
-        container.innerHTML = tableHTML;
+        document.body.insertAdjacentHTML('beforeend', historyHTML);
     }
 
-    getPerformanceRating(efficiency) {
-        if (efficiency >= 90) return { text: 'PERFEITO! 🏆', class: 'perfect' };
-        if (efficiency >= 75) return { text: 'EXCELENTE! ⭐', class: 'excellent' };
-        if (efficiency >= 60) return { text: 'MUITO BOM! 👍', class: 'good' };
-        if (efficiency >= 40) return { text: 'BOM! 💪', class: 'average' };
-        return { text: 'PRATICAR! 🌱', class: 'practice' };
+    // ✅ RANKING GLOBAL ATUALIZADO
+    async showGlobalRanking() {
+        try {
+            this.showNotification('🔄 Carregando ranking global...', 'info');
+            
+            const globalRanking = await this.fetchGlobalRanking();
+            const currentPlayer = this.playerName;
+            
+            this.closeNotification();
+            
+            const rankingHTML = `
+                <div class="ranking-overlay">
+                    <div class="ranking-card">
+                        <div class="ranking-header">
+                            <h2>🏆 Ranking Global</h2>
+                            <div class="ranking-status">
+                                <span class="online-badge">🌐 ONLINE</span>
+                                <span class="players-count">${globalRanking.length} jogadores</span>
+                            </div>
+                            <button class="btn-close" onclick="window.memoryGame.closeRanking()" aria-label="Fechar ranking">
+                                ×
+                            </button>
+                        </div>
+                        
+                        <div class="ranking-content">
+                            ${globalRanking.length === 0 ? 
+                                '<div class="empty-ranking">🎯 Nenhuma pontuação no ranking ainda.<br><br>Seja o primeiro a marcar pontos!</div>' : 
+                                this.generateRankingList(globalRanking, currentPlayer)
+                            }
+                        </div>
+                        
+                        <div class="ranking-stats">
+                            <div class="stat">
+                                <span class="stat-value">${globalRanking.length}</span>
+                                <span class="stat-label">Jogadores</span>
+                            </div>
+                            <div class="stat">
+                                <span class="stat-value">${globalRanking[0]?.score || 0}</span>
+                                <span class="stat-label">Recorde</span>
+                            </div>
+                            <div class="stat">
+                                <span class="stat-value">${this.getPlayerRank(globalRanking, currentPlayer) || '-'}</span>
+                                <span class="stat-label">Sua Posição</span>
+                            </div>
+                        </div>
+                        
+                        <div class="ranking-actions">
+                            <button onclick="window.memoryGame.closeRanking()" class="btn btn-ghost">
+                                Fechar
+                            </button>
+                            <button onclick="window.memoryGame.refreshRanking()" class="btn btn-secondary">
+                                🔄 Atualizar
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            document.body.insertAdjacentHTML('beforeend', rankingHTML);
+            
+        } catch (error) {
+            console.error('Erro ao carregar ranking:', error);
+            this.showNotification('❌ Erro ao carregar ranking global', 'error');
+        }
+    }
+
+    refreshRanking() {
+        this.closeRanking();
+        setTimeout(() => this.showGlobalRanking(), 300);
+    }
+
+    closeNotification() {
+        const notification = document.querySelector('.notification');
+        if (notification) {
+            notification.remove();
+        }
+    }
+
+    // ✅ FUNÇÃO PARA LIMPAR HISTÓRICO INDIVIDUAL
+    clearIndividualHistory() {
+        if (confirm('Tem certeza que deseja limpar seu histórico individual?\n\nEsta ação não pode ser desfeita.')) {
+            try {
+                const history = this.getGameHistory();
+                const filteredHistory = history.filter(game => game.playerName !== this.playerName);
+                localStorage.setItem('memoryGameHistory', JSON.stringify(filteredHistory));
+                this.closeHistory();
+                this.showNotification('Seu histórico foi limpo!', 'success');
+                setTimeout(() => this.showHistory(), 500);
+            } catch (error) {
+                this.showNotification('Erro ao limpar histórico', 'error');
+            }
+        }
+    }
+
+    // ✅ FUNÇÕES AUXILIARES PARA RANKING
+    generateRankingList(ranking, currentPlayer) {
+        return `
+            <div class="ranking-list">
+                ${ranking.slice(0, 20).map((player, index) => `
+                    <div class="ranking-item ${player.playerName === currentPlayer ? 'current-player' : ''} ${index < 3 ? `top-${index + 1}` : ''}">
+                        <div class="ranking-position">
+                            ${this.getRankingMedal(index + 1)}
+                        </div>
+                        <div class="ranking-player-info">
+                            <div class="player-name">
+                                ${player.playerName}
+                                ${player.playerName === currentPlayer ? '<span class="you-badge">Você</span>' : ''}
+                            </div>
+                            <div class="player-stats">
+                                <span>${player.moves} jogadas</span>
+                                <span>•</span>
+                                <span>${player.time}</span>
+                                <span>•</span>
+                                <span>${this.getDifficultyName(player.difficulty)}</span>
+                            </div>
+                        </div>
+                        <div class="ranking-score">
+                            ${player.score}
+                            <span>pts</span>
+                        </div>
+                    </div>
+                `).join('')}
+            </div>
+        `;
+    }
+
+    getRankingMedal(position) {
+        switch(position) {
+            case 1: return '🥇';
+            case 2: return '🥈';
+            case 3: return '🥉';
+            default: return `#${position}`;
+        }
+    }
+
+    getPlayerRank(ranking, playerName) {
+        const playerIndex = ranking.findIndex(player => player.playerName === playerName);
+        return playerIndex !== -1 ? playerIndex + 1 : null;
+    }
+
+    generateHistoryList(history) {
+        return `
+            <div class="history-list">
+                ${history.map((game, index) => `
+                    <div class="history-item ${index === 0 ? 'recent' : ''}">
+                        <div class="history-game-info">
+                            <div class="game-main-stats">
+                                <span class="game-score">${game.score} pts</span>
+                                <span class="game-difficulty badge-${game.difficulty}">${this.getDifficultyName(game.difficulty)}</span>
+                            </div>
+                            <div class="game-details">
+                                <span>${game.moves} jogadas</span>
+                                <span>•</span>
+                                <span>${game.time}</span>
+                                <span>•</span>
+                                <span>${game.efficiency}% eficiência</span>
+                            </div>
+                            <div class="game-date">
+                                ${this.formatDate(game.date)}
+                            </div>
+                        </div>
+                        <div class="history-rank">
+                            #${index + 1}
+                        </div>
+                    </div>
+                `).join('')}
+            </div>
+        `;
+    }
+
+    getDifficultyName(difficulty) {
+        const names = {
+            easy: 'Fácil',
+            medium: 'Médio',
+            hard: 'Difícil'
+        };
+        return names[difficulty] || difficulty;
+    }
+
+    formatDate(dateString) {
+        const date = new Date(dateString);
+        return date.toLocaleDateString('pt-BR', {
+            day: '2-digit',
+            month: '2-digit',
+            year: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit'
+        });
+    }
+
+    closeHistory() {
+        const historyOverlay = document.querySelector('.history-overlay');
+        if (historyOverlay) {
+            historyOverlay.remove();
+        }
+        
+        if (this.gameStarted) {
+            document.getElementById('gameSection').style.display = 'block';
+            document.getElementById('difficultySection').style.display = 'none';
+            this.restartBtn.style.display = 'block';
+            this.changeDifficultyBtn.style.display = 'block';
+        }
+    }
+
+    closeRanking() {
+        const rankingOverlay = document.querySelector('.ranking-overlay');
+        if (rankingOverlay) {
+            rankingOverlay.remove();
+        }
     }
 
     calculatePerformance() {
@@ -1144,14 +1562,30 @@ class MemoryGame {
         return { text: 'CONTINUE PRATICANDO! 🌱', class: 'practice' };
     }
 
+    // ✅ RESTART GAME
     restartGame() {
         const victoryOverlay = document.querySelector('.victory-overlay');
         if (victoryOverlay) {
             victoryOverlay.remove();
         }
         
+        const historyOverlay = document.querySelector('.history-overlay');
+        if (historyOverlay) {
+            historyOverlay.remove();
+        }
+
+        const rankingOverlay = document.querySelector('.ranking-overlay');
+        if (rankingOverlay) {
+            rankingOverlay.remove();
+        }
+        
         this.stopTimer();
-        this.startGame(this.currentDifficulty);
+        
+        if (this.currentDifficulty) {
+            this.startGame(this.currentDifficulty);
+        } else {
+            this.showDifficultySelection();
+        }
     }
 }
 
