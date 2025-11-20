@@ -16,6 +16,13 @@ class MemoryGame {
         this.soundEnabled = true;
         this.playerName = '';
 
+// ✅ CONFIGURAÇÃO CORRIGIDA DO JSONBIN
+this.jsonBinConfig = {
+    binId: '691f83b443b1c97be9ba5232', // ✅ SEU NOVO BIN ID FUNCIONAL
+    apiKey: '$2a$10$qoDApeLTfaYPrEIhIuF4SuAHe4a3ZDuFdP1n8/.bVGtovamXLjlBO',
+    baseUrl: 'https://api.jsonbin.io/v3/b'
+};
+
         // Configurações de dificuldade
         this.difficultySettings = {
             easy: { pairs: 4, columns: 'cards-4', multiplier: 1.0, baseScore: 100, timeBonus: 50, perfectBonus: 200 },
@@ -566,90 +573,159 @@ class MemoryGame {
         return finalScore;
     }
 
-    // ✅ SISTEMA DE HISTÓRICO LOCAL - ATUALIZADO COM NOME DO JOGADOR
-    saveGameHistory(finalScore, gameTime, difficulty) {
+    // ✅ SISTEMA DE RANKING GLOBAL COM JSONBIN
+    async saveGameHistory(finalScore, gameTime, difficulty) {
         try {
             const gameData = {
+                playerName: this.playerName,
                 score: finalScore,
                 time: gameTime,
                 moves: this.moves,
                 difficulty: difficulty,
-                date: new Date().toISOString(),
                 efficiency: this.totalPairs > 0 ? 
                     Math.round((this.matchedPairs / this.moves) * 100) || 0 : 0,
-                pairs: this.totalPairs,
-                playerName: this.playerName // ✅ ADICIONAR NOME DO JOGADOR
+                date: new Date().toISOString()
             };
 
-            // Recuperar histórico existente
+            // 1. Salvar localmente
             const history = this.getGameHistory();
-            
-            // Adicionar novo registro
             history.unshift(gameData);
-            
-            // Manter apenas os últimos 50 registros
             const limitedHistory = history.slice(0, 50);
-            
-            // Salvar no localStorage
             localStorage.setItem('memoryGameHistory', JSON.stringify(limitedHistory));
+
+            // 2. ✅ SALVAR NO RANKING GLOBAL ONLINE
+            await this.saveToGlobalRanking(gameData);
             
-            // ✅ SALVAR NO RANKING GLOBAL
-            this.updateGlobalRanking(gameData);
+            console.log('🎉 Dados salvos no ranking global!');
             
-            console.log('Histórico e ranking atualizados com sucesso!');
         } catch (error) {
             console.error('Erro ao salvar histórico:', error);
         }
     }
 
-    // ✅ NOVA FUNÇÃO PARA ATUALIZAR RANKING GLOBAL
-    updateGlobalRanking(gameData) {
+    // ✅ BUSCAR RANKING DO JSONBIN - VERSÃO CORRIGIDA
+async fetchGlobalRanking() {
+    try {
+        console.log('🌐 Buscando ranking global...');
+        
+        const response = await fetch(`${this.jsonBinConfig.baseUrl}/${this.jsonBinConfig.binId}/latest`, {
+            headers: {
+                'X-Access-Key': this.jsonBinConfig.apiKey,
+                'Content-Type': 'application/json'
+            }
+        });
+
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        
+        const data = await response.json();
+        console.log('🔍 DEBUG - Dados completos:', data);
+        
+        // ✅ EXTRAIR O ARRAY ranking DO OBJETO
+        const ranking = data.record?.ranking || [];
+        console.log('✅ Ranking carregado:', ranking.length, 'jogadores');
+        return ranking;
+        
+    } catch (error) {
+        console.warn('❌ Erro ao buscar ranking online:', error);
+        return this.getLocalRankingFallback();
+    }
+}
+
+    // ✅ SALVAR NO RANKING ONLINE
+    async saveToGlobalRanking(gameData) {
         try {
-            const ranking = this.getGlobalRanking();
-            const playerIndex = ranking.findIndex(entry => 
-                entry.playerName === this.playerName && entry.difficulty === gameData.difficulty
+            console.log('💾 Salvando no ranking global...', gameData);
+            
+            // Buscar ranking atual
+            const currentRanking = await this.fetchGlobalRanking();
+            
+            // Encontrar jogador existente
+            const playerIndex = currentRanking.findIndex(player => 
+                player.playerName === gameData.playerName && 
+                player.difficulty === gameData.difficulty
             );
 
-            const rankingEntry = {
-                playerName: this.playerName,
-                score: gameData.score,
-                difficulty: gameData.difficulty,
-                moves: gameData.moves,
-                time: gameData.time,
-                date: gameData.date,
-                efficiency: gameData.efficiency
-            };
-
             if (playerIndex !== -1) {
-                // Atualizar score se for maior
-                if (gameData.score > ranking[playerIndex].score) {
-                    ranking[playerIndex] = rankingEntry;
+                // Atualizar se score for maior
+                if (gameData.score > currentRanking[playerIndex].score) {
+                    currentRanking[playerIndex] = {
+                        ...currentRanking[playerIndex],
+                        ...gameData,
+                        date: new Date().toISOString()
+                    };
+                    console.log('🔄 Pontuação atualizada para:', gameData.playerName);
+                } else {
+                    console.log('ℹ️  Pontuação mantida para:', gameData.playerName);
+                    return true;
                 }
             } else {
-                // Adicionar novo jogador ao ranking
-                ranking.push(rankingEntry);
+                // Adicionar novo jogador
+                currentRanking.push({
+                    ...gameData,
+                    date: new Date().toISOString()
+                });
+                console.log('👤 Novo jogador adicionado:', gameData.playerName);
             }
 
-            // Ordenar por score (maior para menor)
-            ranking.sort((a, b) => b.score - a.score);
+            // Ordenar por score (maior primeiro)
+            currentRanking.sort((a, b) => b.score - a.score);
             
-            // Manter apenas os top 100
-            const limitedRanking = ranking.slice(0, 100);
+            // Manter apenas top 100
+            const limitedRanking = currentRanking.slice(0, 100);
             
-            localStorage.setItem('memoryGameGlobalRanking', JSON.stringify(limitedRanking));
+            // Salvar no JSONBin
+            await this.updateJsonBin(limitedRanking);
+            
+            console.log('✅ Ranking atualizado com sucesso!');
+            return true;
             
         } catch (error) {
-            console.error('Erro ao atualizar ranking global:', error);
+            console.error('❌ Erro ao salvar ranking global:', error);
+            this.showNotification('Erro ao conectar com ranking global', 'error');
+            return false;
         }
     }
 
-    // ✅ NOVA FUNÇÃO PARA OBTER RANKING GLOBAL
-    getGlobalRanking() {
+    // ✅ ATUALIZAR JSONBIN - VERSÃO CORRIGIDA
+async updateJsonBin(ranking) {
+    // ✅ ENVIAR OBJETO COMPLETO (igual ao do JSONBin)
+    const dataToUpdate = {
+        ranking: ranking,
+        metadata: {
+            totalPlayers: ranking.length,
+            lastUpdated: new Date().toISOString(),
+            gameVersion: "1.0.0",
+            maxRankingSize: 100
+        }
+    };
+
+    console.log('💾 Enviando para JSONBin:', dataToUpdate);
+
+    const response = await fetch(`${this.jsonBinConfig.baseUrl}/${this.jsonBinConfig.binId}`, {
+        method: 'PUT',
+        headers: {
+            'X-Access-Key': this.jsonBinConfig.apiKey,
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(dataToUpdate)
+    });
+
+    if (!response.ok) {
+        throw new Error(`Falha ao atualizar: ${response.status}`);
+    }
+    
+    const result = await response.json();
+    console.log('✅ JSONBin atualizado com sucesso!');
+    return result;
+}
+
+    // ✅ FALLBACK LOCAL SE INTERNET FALHAR
+    getLocalRankingFallback() {
         try {
-            const ranking = localStorage.getItem('memoryGameGlobalRanking');
-            return ranking ? JSON.parse(ranking) : [];
-        } catch (error) {
-            console.error('Erro ao recuperar ranking global:', error);
+            return JSON.parse(localStorage.getItem('memoryGameGlobalRanking') || '[]');
+        } catch {
             return [];
         }
     }
@@ -668,7 +744,6 @@ class MemoryGame {
         try {
             localStorage.removeItem('memoryGameHistory');
             this.showNotification('Histórico limpo com sucesso!', 'success');
-            // Recarregar a visualização do histórico se estiver aberta
             const historyOverlay = document.querySelector('.history-overlay');
             if (historyOverlay) {
                 this.showHistory();
@@ -768,11 +843,9 @@ class MemoryGame {
         return colors[Math.floor(Math.random() * colors.length)];
     }
 
-    // ✅ ATUALIZAR A VICTORY MESSAGE PARA CORRIGIR O BOTÃO
+    // ✅ VICTORY MESSAGE ATUALIZADA
     showVictoryMessage(finalScore, gameTime) {
         const performance = this.calculatePerformance();
-        const ranking = this.getGlobalRanking();
-        const playerRank = this.getPlayerRank(ranking);
         
         const victoryHTML = `
             <div class="victory-overlay">
@@ -812,13 +885,6 @@ class MemoryGame {
                         <span class="rating-value ${performance.class}">${performance.text}</span>
                     </div>
 
-                    ${playerRank ? `
-                    <div class="ranking-info">
-                        <span class="ranking-label">Sua posição no ranking:</span>
-                        <span class="ranking-position">${this.getRankingMedal(playerRank)}</span>
-                    </div>
-                    ` : ''}
-
                     <div class="victory-actions">
                         <button class="btn btn-primary victory-btn" data-action="restart">
                             🎮 Jogar Novamente
@@ -838,8 +904,6 @@ class MemoryGame {
         `;
         
         document.body.insertAdjacentHTML('beforeend', victoryHTML);
-        
-        // ✅ ADICIONAR EVENT LISTENERS AOS BOTÕES
         this.setupVictoryButtons();
         
         setTimeout(() => {
@@ -849,7 +913,6 @@ class MemoryGame {
         }, 100);
     }
 
-    // ✅ NOVA FUNÇÃO PARA CONFIGURAR OS BOTÕES DE VITÓRIA
     setupVictoryButtons() {
         const victoryOverlay = document.querySelector('.victory-overlay');
         
@@ -879,12 +942,11 @@ class MemoryGame {
         }
     }
 
-    // ✅ ATUALIZAR A FUNÇÃO showHistory PARA MOSTRAR APENAS DO JOGADOR ATUAL
+    // ✅ HISTÓRICO INDIVIDUAL
     showHistory() {
         const history = this.getGameHistory();
         const playerHistory = history.filter(game => game.playerName === this.playerName);
         
-        // Fechar overlay de vitória se existir
         const victoryOverlay = document.querySelector('.victory-overlay');
         if (victoryOverlay) {
             victoryOverlay.remove();
@@ -928,65 +990,82 @@ class MemoryGame {
         document.body.insertAdjacentHTML('beforeend', historyHTML);
     }
 
-    // ✅ NOVA FUNÇÃO PARA MOSTRAR RANKING GLOBAL
-    showGlobalRanking() {
-        const ranking = this.getGlobalRanking();
-        
-        // Fechar overlays existentes
-        this.closeHistory();
-        const victoryOverlay = document.querySelector('.victory-overlay');
-        if (victoryOverlay) victoryOverlay.remove();
-        
-        const rankingHTML = `
-            <div class="ranking-overlay">
-                <div class="ranking-card">
-                    <div class="ranking-header">
-                        <h2>🏆 Ranking Global</h2>
-                        <button class="btn-close" onclick="window.memoryGame.closeRanking()" aria-label="Fechar ranking">
-                            ×
-                        </button>
-                    </div>
-                    
-                    <div class="ranking-filters">
-                        <button class="filter-btn active" data-filter="all">Todos</button>
-                        <button class="filter-btn" data-filter="easy">Fácil</button>
-                        <button class="filter-btn" data-filter="medium">Médio</button>
-                        <button class="filter-btn" data-filter="hard">Difícil</button>
-                    </div>
-                    
-                    <div class="ranking-content">
-                        ${ranking.length === 0 ? 
-                            '<div class="empty-ranking">🎯 Nenhuma pontuação no ranking ainda.<br><br>Seja o primeiro a entrar no ranking!</div>' : 
-                            this.generateRankingList(ranking, 'all')
-                        }
-                    </div>
-                    
-                    <div class="ranking-stats">
-                        <div class="stat">
-                            <span class="stat-value">${ranking.length}</span>
-                            <span class="stat-label">Jogadores</span>
+    // ✅ RANKING GLOBAL ATUALIZADO
+    async showGlobalRanking() {
+        try {
+            this.showNotification('🔄 Carregando ranking global...', 'info');
+            
+            const globalRanking = await this.fetchGlobalRanking();
+            const currentPlayer = this.playerName;
+            
+            this.closeNotification();
+            
+            const rankingHTML = `
+                <div class="ranking-overlay">
+                    <div class="ranking-card">
+                        <div class="ranking-header">
+                            <h2>🏆 Ranking Global</h2>
+                            <div class="ranking-status">
+                                <span class="online-badge">🌐 ONLINE</span>
+                                <span class="players-count">${globalRanking.length} jogadores</span>
+                            </div>
+                            <button class="btn-close" onclick="window.memoryGame.closeRanking()" aria-label="Fechar ranking">
+                                ×
+                            </button>
                         </div>
-                        <div class="stat">
-                            <span class="stat-value">${ranking[0]?.score || 0}</span>
-                            <span class="stat-label">Recorde</span>
+                        
+                        <div class="ranking-content">
+                            ${globalRanking.length === 0 ? 
+                                '<div class="empty-ranking">🎯 Nenhuma pontuação no ranking ainda.<br><br>Seja o primeiro a marcar pontos!</div>' : 
+                                this.generateRankingList(globalRanking, currentPlayer)
+                            }
                         </div>
-                        <div class="stat">
-                            <span class="stat-value">${this.getPlayerRank(ranking) || '-'}</span>
-                            <span class="stat-label">Sua Posição</span>
+                        
+                        <div class="ranking-stats">
+                            <div class="stat">
+                                <span class="stat-value">${globalRanking.length}</span>
+                                <span class="stat-label">Jogadores</span>
+                            </div>
+                            <div class="stat">
+                                <span class="stat-value">${globalRanking[0]?.score || 0}</span>
+                                <span class="stat-label">Recorde</span>
+                            </div>
+                            <div class="stat">
+                                <span class="stat-value">${this.getPlayerRank(globalRanking, currentPlayer) || '-'}</span>
+                                <span class="stat-label">Sua Posição</span>
+                            </div>
                         </div>
-                    </div>
-                    
-                    <div class="ranking-actions">
-                        <button onclick="window.memoryGame.closeRanking()" class="btn btn-ghost">
-                            Fechar
-                        </button>
+                        
+                        <div class="ranking-actions">
+                            <button onclick="window.memoryGame.closeRanking()" class="btn btn-ghost">
+                                Fechar
+                            </button>
+                            <button onclick="window.memoryGame.refreshRanking()" class="btn btn-secondary">
+                                🔄 Atualizar
+                            </button>
+                        </div>
                     </div>
                 </div>
-            </div>
-        `;
-        
-        document.body.insertAdjacentHTML('beforeend', rankingHTML);
-        this.setupRankingFilters();
+            `;
+            
+            document.body.insertAdjacentHTML('beforeend', rankingHTML);
+            
+        } catch (error) {
+            console.error('Erro ao carregar ranking:', error);
+            this.showNotification('❌ Erro ao carregar ranking global', 'error');
+        }
+    }
+
+    refreshRanking() {
+        this.closeRanking();
+        setTimeout(() => this.showGlobalRanking(), 300);
+    }
+
+    closeNotification() {
+        const notification = document.querySelector('.notification');
+        if (notification) {
+            notification.remove();
+        }
     }
 
     // ✅ FUNÇÃO PARA LIMPAR HISTÓRICO INDIVIDUAL
@@ -1006,22 +1085,18 @@ class MemoryGame {
     }
 
     // ✅ FUNÇÕES AUXILIARES PARA RANKING
-    generateRankingList(ranking, filter = 'all') {
-        const filteredRanking = filter === 'all' 
-            ? ranking 
-            : ranking.filter(entry => entry.difficulty === filter);
-            
+    generateRankingList(ranking, currentPlayer) {
         return `
             <div class="ranking-list">
-                ${filteredRanking.slice(0, 20).map((player, index) => `
-                    <div class="ranking-item ${player.playerName === this.playerName ? 'current-player' : ''} ${index < 3 ? `top-${index + 1}` : ''}">
+                ${ranking.slice(0, 20).map((player, index) => `
+                    <div class="ranking-item ${player.playerName === currentPlayer ? 'current-player' : ''} ${index < 3 ? `top-${index + 1}` : ''}">
                         <div class="ranking-position">
                             ${this.getRankingMedal(index + 1)}
                         </div>
                         <div class="ranking-player-info">
                             <div class="player-name">
                                 ${player.playerName}
-                                ${player.playerName === this.playerName ? '<span class="you-badge">Você</span>' : ''}
+                                ${player.playerName === currentPlayer ? '<span class="you-badge">Você</span>' : ''}
                             </div>
                             <div class="player-stats">
                                 <span>${player.moves} jogadas</span>
@@ -1050,35 +1125,11 @@ class MemoryGame {
         }
     }
 
-    getPlayerRank(ranking) {
-        const playerIndex = ranking.findIndex(player => player.playerName === this.playerName);
+    getPlayerRank(ranking, playerName) {
+        const playerIndex = ranking.findIndex(player => player.playerName === playerName);
         return playerIndex !== -1 ? playerIndex + 1 : null;
     }
 
-    setupRankingFilters() {
-        const filterButtons = document.querySelectorAll('.filter-btn');
-        const rankingContent = document.querySelector('.ranking-content');
-        const ranking = this.getGlobalRanking();
-        
-        filterButtons.forEach(btn => {
-            btn.addEventListener('click', () => {
-                filterButtons.forEach(b => b.classList.remove('active'));
-                btn.classList.add('active');
-                
-                const filter = btn.dataset.filter;
-                rankingContent.innerHTML = this.generateRankingList(ranking, filter);
-            });
-        });
-    }
-
-    closeRanking() {
-        const rankingOverlay = document.querySelector('.ranking-overlay');
-        if (rankingOverlay) {
-            rankingOverlay.remove();
-        }
-    }
-
-    // ✅ FUNÇÕES AUXILIARES EXISTENTES
     generateHistoryList(history) {
         return `
             <div class="history-list">
@@ -1135,12 +1186,18 @@ class MemoryGame {
             historyOverlay.remove();
         }
         
-        // Se fecharmos o histórico durante o jogo, voltar para o jogo
         if (this.gameStarted) {
             document.getElementById('gameSection').style.display = 'block';
             document.getElementById('difficultySection').style.display = 'none';
             this.restartBtn.style.display = 'block';
             this.changeDifficultyBtn.style.display = 'block';
+        }
+    }
+
+    closeRanking() {
+        const rankingOverlay = document.querySelector('.ranking-overlay');
+        if (rankingOverlay) {
+            rankingOverlay.remove();
         }
     }
 
@@ -1155,7 +1212,7 @@ class MemoryGame {
         return { text: 'CONTINUE PRATICANDO! 🌱', class: 'practice' };
     }
 
-    // ✅ ATUALIZAR A FUNÇÃO restartGame PARA SER MAIS ROBUSTA
+    // ✅ RESTART GAME
     restartGame() {
         const victoryOverlay = document.querySelector('.victory-overlay');
         if (victoryOverlay) {
@@ -1174,11 +1231,9 @@ class MemoryGame {
         
         this.stopTimer();
         
-        // Verificar se há uma dificuldade atual definida
         if (this.currentDifficulty) {
             this.startGame(this.currentDifficulty);
         } else {
-            // Se não houver dificuldade definida, voltar para seleção
             this.showDifficultySelection();
         }
     }

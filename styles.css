@@ -949,27 +949,6 @@ a:focus {
 .rating-value.average { color: #8b5cf6; }
 .rating-value.practice { color: var(--muted); }
 
-.ranking-info {
-  margin-bottom: 24px;
-  padding: 16px;
-  background: rgba(245, 158, 11, 0.1);
-  border-radius: 12px;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-.ranking-label {
-  font-size: 0.9rem;
-  color: var(--muted);
-}
-
-.ranking-position {
-  font-size: 1.4rem;
-  font-weight: bold;
-  color: var(--warning);
-}
-
 .victory-actions {
   display: flex;
   gap: 12px;
@@ -1203,7 +1182,7 @@ a:focus {
 }
 
 /* -------------------------
-   Sistema de Ranking Global
+   Sistema de Ranking Global ATUALIZADO
    ------------------------- */
 .ranking-overlay {
   position: fixed;
@@ -1246,6 +1225,39 @@ a:focus {
   margin: 0;
   color: var(--text);
   font-size: 1.5rem;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* ✅ NOVOS ESTILOS PARA RANKING ONLINE */
+.online-badge {
+  background: var(--success);
+  color: white;
+  padding: 4px 8px;
+  border-radius: 12px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  animation: pulseOnline 2s infinite;
+}
+
+@keyframes pulseOnline {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.7; }
+}
+
+.ranking-status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.players-count {
+  font-size: 0.8rem;
+  color: var(--muted);
+  background: var(--glass);
+  padding: 4px 8px;
+  border-radius: 8px;
 }
 
 .ranking-filters {
@@ -1676,6 +1688,23 @@ a:focus {
   .ranking-actions {
     flex-direction: column;
   }
+
+  /* ✅ RANKING MOBILE ATUALIZADO */
+  .ranking-header {
+    padding: 16px;
+    flex-direction: column;
+    gap: 12px;
+    align-items: flex-start;
+  }
+  
+  .ranking-header h2 {
+    font-size: 1.3rem;
+  }
+  
+  .ranking-status {
+    align-self: stretch;
+    justify-content: space-between;
+  }
 }
 
 @media (max-width: 540px) {
@@ -1802,6 +1831,37 @@ a:focus {
   
   .login-icon {
     font-size: 3rem;
+  }
+
+  /* ✅ RANKING MOBILE COMPACTO */
+  .ranking-filters {
+    padding: 12px 16px;
+    gap: 6px;
+  }
+  
+  .filter-btn {
+    padding: 6px 12px;
+    font-size: 0.8rem;
+    flex: 1;
+    min-width: 0;
+  }
+  
+  .ranking-item {
+    padding: 12px;
+    gap: 12px;
+  }
+  
+  .ranking-position {
+    font-size: 1rem;
+    min-width: 40px;
+  }
+  
+  .ranking-score {
+    font-size: 1.1rem;
+  }
+  
+  .player-stats {
+    font-size: 0.75rem;
   }
 }
 
