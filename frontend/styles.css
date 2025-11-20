@@ -385,6 +385,271 @@ a:focus {
   color: var(--text);
 }
 
+/* -------------------------
+   Sistema de Histórico e Ranking
+   ------------------------- */
+
+.history-section {
+  margin-top: 24px;
+  background: var(--glass);
+  border-radius: 12px;
+  padding: 16px;
+  border: 1px solid rgba(15,23,36,0.1);
+}
+
+.history-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--glass);
+}
+
+/* Tabs do Histórico */
+.history-tabs {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 20px;
+  border-bottom: 1px solid var(--glass);
+  padding-bottom: 16px;
+}
+
+.history-tab {
+  padding: 10px 20px;
+  border: 1px solid var(--glass);
+  background: transparent;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-size: 0.9rem;
+  color: var(--muted);
+}
+
+.history-tab:hover {
+  background: var(--glass);
+  border-color: var(--accent);
+}
+
+.history-tab.active {
+  background: var(--accent);
+  color: white;
+  border-color: var(--accent);
+}
+
+.history-tab-content {
+  display: none;
+}
+
+.history-tab-content.active {
+  display: block;
+}
+
+/* Lista de Histórico Local */
+.history-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+.history-item {
+  background: var(--surface);
+  border-radius: 10px;
+  padding: 14px;
+  border: 1px solid rgba(15,23,36,0.05);
+  transition: all 0.2s ease;
+}
+
+.history-item:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(2,6,23,0.08);
+}
+
+.history-main {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.history-score {
+  font-size: 1.2rem;
+  font-weight: bold;
+  color: var(--accent);
+}
+
+.history-difficulty {
+  padding: 4px 10px;
+  border-radius: 12px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.history-difficulty.easy {
+  background: rgba(16, 185, 129, 0.1);
+  color: var(--success);
+}
+
+.history-difficulty.medium {
+  background: rgba(245, 158, 11, 0.1);
+  color: #f59e0b;
+}
+
+.history-difficulty.hard {
+  background: rgba(239, 68, 68, 0.1);
+  color: var(--danger);
+}
+
+.history-details {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+
+.history-date {
+  font-size: 0.8rem;
+  opacity: 0.8;
+}
+
+.history-empty {
+  text-align: center;
+  padding: 40px 20px;
+  color: var(--muted);
+}
+
+/* -------------------------
+   Ranking Global no Histórico
+   ------------------------- */
+.global-ranking-container {
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+.global-ranking-section {
+  background: linear-gradient(135deg, rgba(15, 98, 254, 0.05), transparent);
+  border-radius: 12px;
+  padding: 16px;
+  border: 1px solid rgba(15, 98, 254, 0.1);
+}
+
+.global-ranking-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.global-ranking-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px;
+  background: var(--surface);
+  border-radius: 8px;
+  border: 1px solid var(--glass);
+  transition: all 0.2s ease;
+}
+
+.global-ranking-item:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(2, 6, 23, 0.08);
+}
+
+.global-ranking-item.top-three {
+  background: linear-gradient(135deg, rgba(245, 158, 11, 0.05), rgba(15, 98, 254, 0.05));
+  border-color: rgba(245, 158, 11, 0.2);
+}
+
+.global-ranking-item.top-three:nth-child(1) {
+  background: linear-gradient(135deg, rgba(245, 158, 11, 0.1), rgba(255, 215, 0, 0.05));
+  border-color: rgba(245, 158, 11, 0.3);
+}
+
+.global-ranking-item.top-three:nth-child(2) {
+  background: linear-gradient(135deg, rgba(192, 192, 192, 0.1), rgba(15, 98, 254, 0.05));
+  border-color: rgba(192, 192, 192, 0.3);
+}
+
+.global-ranking-item.top-three:nth-child(3) {
+  background: linear-gradient(135deg, rgba(205, 127, 50, 0.1), rgba(15, 98, 254, 0.05));
+  border-color: rgba(205, 127, 50, 0.3);
+}
+
+.global-rank {
+  font-size: 1.1rem;
+  font-weight: bold;
+  color: var(--accent);
+  min-width: 40px;
+  text-align: center;
+}
+
+.global-ranking-item.top-three:nth-child(1) .global-rank {
+  color: #f59e0b;
+  font-size: 1.3rem;
+}
+
+.global-ranking-item.top-three:nth-child(2) .global-rank {
+  color: #9ca3af;
+  font-size: 1.2rem;
+}
+
+.global-ranking-item.top-three:nth-child(3) .global-rank {
+  color: #b45309;
+  font-size: 1.1rem;
+}
+
+.global-player-info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.global-player-name {
+  font-weight: 600;
+  color: var(--text);
+  font-size: 0.95rem;
+}
+
+.global-player-score {
+  font-weight: bold;
+  color: var(--success);
+  font-size: 1rem;
+}
+
+.global-player-details {
+  font-size: 0.8rem;
+  color: var(--muted);
+  text-align: right;
+}
+
+/* Scrollbar personalizada */
+.history-list::-webkit-scrollbar,
+.global-ranking-container::-webkit-scrollbar {
+  width: 6px;
+}
+
+.history-list::-webkit-scrollbar-track,
+.global-ranking-container::-webkit-scrollbar-track {
+  background: var(--glass);
+  border-radius: 3px;
+}
+
+.history-list::-webkit-scrollbar-thumb,
+.global-ranking-container::-webkit-scrollbar-thumb {
+  background: var(--accent);
+  border-radius: 3px;
+}
+
+.history-list::-webkit-scrollbar-thumb:hover,
+.global-ranking-container::-webkit-scrollbar-thumb:hover {
+  background: var(--accent-700);
+}
+
 /* footer meta */
 .meta {
   display: flex;
@@ -835,6 +1100,250 @@ a:focus {
 }
 
 /* -------------------------
+   Modal de Nome para Ranking
+   ------------------------- */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(15, 23, 36, 0.95);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 3000;
+  padding: 20px;
+  backdrop-filter: blur(5px);
+}
+
+.modal-content {
+  background: var(--surface);
+  border-radius: 20px;
+  padding: 32px;
+  max-width: 400px;
+  width: 90%;
+  text-align: center;
+  box-shadow: 0 25px 80px rgba(2, 6, 23, 0.3);
+  animation: modalSlideIn 0.3s ease-out;
+}
+
+@keyframes modalSlideIn {
+  from {
+    opacity: 0;
+    transform: translateY(-30px) scale(0.9);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.modal-header h3 {
+  margin: 0 0 8px 0;
+  color: var(--text);
+  font-size: 1.4rem;
+}
+
+.modal-header p {
+  margin: 0 0 20px 0;
+  color: var(--muted);
+  font-size: 1rem;
+}
+
+.name-input {
+  width: 100%;
+  padding: 12px 16px;
+  border: 2px solid var(--glass);
+  border-radius: 10px;
+  font-size: 1rem;
+  margin: 16px 0;
+  transition: all 0.2s ease;
+  background: var(--surface);
+  color: var(--text);
+}
+
+.name-input:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(15, 98, 254, 0.1);
+}
+
+.modal-actions {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+  margin-top: 20px;
+}
+
+.modal-actions .btn {
+  min-width: 120px;
+}
+
+/* -------------------------
+   Sistema de Ranking no Jogo
+   ------------------------- */
+.ranking-section {
+  margin-top: 32px;
+  border-top: 1px solid var(--glass);
+  padding-top: 24px;
+}
+
+.ranking-actions {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 20px;
+}
+
+.ranking-tabs {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 20px;
+  justify-content: center;
+  border-bottom: 1px solid var(--glass);
+  padding-bottom: 16px;
+}
+
+.tab-btn {
+  padding: 10px 20px;
+  border: 1px solid var(--glass);
+  background: transparent;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-size: 0.9rem;
+  color: var(--muted);
+}
+
+.tab-btn:hover {
+  background: var(--glass);
+  border-color: var(--accent);
+}
+
+.tab-btn.active {
+  background: var(--accent);
+  color: white;
+  border-color: var(--accent);
+}
+
+.tab-content {
+  min-height: 200px;
+}
+
+.tab-pane {
+  display: none;
+}
+
+.tab-pane.active {
+  display: block;
+}
+
+/* Tabela de Ranking */
+.ranking-table {
+  background: var(--glass);
+  border-radius: 12px;
+  overflow: hidden;
+  border: 1px solid rgba(15, 23, 36, 0.1);
+}
+
+.table-header {
+  display: grid;
+  grid-template-columns: 60px 1fr 100px 1fr;
+  gap: 12px;
+  padding: 16px;
+  background: rgba(15, 98, 254, 0.1);
+  font-weight: 600;
+  font-size: 0.85rem;
+  color: var(--text);
+}
+
+.table-body {
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+.table-row {
+  display: grid;
+  grid-template-columns: 60px 1fr 100px 1fr;
+  gap: 12px;
+  padding: 12px 16px;
+  border-bottom: 1px solid rgba(15, 23, 36, 0.1);
+  align-items: center;
+  font-size: 0.9rem;
+  transition: all 0.2s ease;
+}
+
+.table-row:last-child {
+  border-bottom: none;
+}
+
+.table-row:hover {
+  background: rgba(15, 98, 254, 0.05);
+}
+
+.table-row.highlight {
+  background: rgba(16, 185, 129, 0.1);
+  font-weight: 600;
+  border-left: 3px solid var(--success);
+}
+
+.rank-cell {
+  font-weight: bold;
+  color: var(--accent);
+  text-align: center;
+}
+
+.player-cell {
+  font-weight: 500;
+  color: var(--text);
+}
+
+.score-cell {
+  font-weight: bold;
+  color: var(--success);
+  text-align: center;
+}
+
+.details-cell {
+  font-size: 0.8rem;
+  color: var(--muted);
+  text-align: right;
+}
+
+.loading, .no-data, .error {
+  text-align: center;
+  padding: 40px 20px;
+  color: var(--muted);
+  font-size: 0.95rem;
+}
+
+.error {
+  color: var(--danger);
+}
+
+.no-data {
+  opacity: 0.7;
+}
+
+/* Scrollbar personalizada para ranking */
+.table-body::-webkit-scrollbar {
+  width: 6px;
+}
+
+.table-body::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.table-body::-webkit-scrollbar-thumb {
+  background: var(--accent);
+  border-radius: 3px;
+}
+
+.table-body::-webkit-scrollbar-thumb:hover {
+  background: var(--accent-700);
+}
+
+/* -------------------------
    Overlay de Vitória Aprimorado
    ------------------------- */
 .victory-overlay {
@@ -863,6 +1372,12 @@ a:focus {
   transform: scale(0.8);
   opacity: 0;
   transition: all 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  max-height: 90vh;
+  overflow-y: auto;
+}
+
+.victory-card.show-ranking {
+  max-width: 700px;
 }
 
 .victory-header {

@@ -1,4 +1,140 @@
-// game.js - Sistema Completo com Ranking Global e Login
+
+// game.js - Sistema Completo com Ranking Híbrido (Funciona Online/Offline)
+class RankingManager {
+    constructor() {
+        this.localRankingKey = 'memoryGameGlobalRanking';
+        this.maxLocalEntries = 50;
+        // ✅ URL DO SEU BACKEND REAL - SUBSTITUA PELA SUA URL
+        this.backendBaseUrl = 'https://seu-backend-real.railway.app'; // ← SUBSTITUA ISSO!
+    }
+
+    // Salvar no ranking (tenta backend primeiro, depois local)
+    async saveToRanking(gameData) {
+        try {
+            // Primeiro tenta salvar no backend
+            const backendSuccess = await this.tryBackendSave(gameData);
+            if (backendSuccess) {
+                // Se salvou no backend, também salva localmente como backup
+                this.saveToLocalRanking(gameData);
+                return true;
+            }
+            
+            // Se backend falhar, salva apenas localmente
+            return this.saveToLocalRanking(gameData);
+        } catch (error) {
+            // Fallback para localStorage
+            return this.saveToLocalRanking(gameData);
+        }
+    }
+
+    // Tentar salvar no backend
+    async tryBackendSave(gameData) {
+        try {
+            // ✅ USA APENAS UMA URL - A DO SEU BACKEND
+            const backendUrl = `${this.backendBaseUrl}/api/ranking`;
+            
+            const response = await fetch(backendUrl, {
+                method: 'POST',
+                headers: { 
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json'
+                },
+                body: JSON.stringify(gameData)
+            });
+            
+            if (response.ok) {
+                console.log('✅ Dados salvos no backend');
+                return true;
+            } else {
+                console.warn('❌ Backend retornou erro:', response.status);
+                return false;
+            }
+            
+        } catch (error) {
+            console.warn('❌ Backend indisponível, usando modo local');
+            return false;
+        }
+    }
+
+    // Salvar no ranking local (localStorage)
+    saveToLocalRanking(gameData) {
+        try {
+            const existing = this.getLocalRanking();
+            const newEntry = {
+                ...gameData,
+                id: Date.now(),
+                source: 'local'
+            };
+            
+            existing.unshift(newEntry);
+            
+            // Manter apenas os últimos X registros
+            const limited = existing.slice(0, this.maxLocalEntries);
+            localStorage.setItem(this.localRankingKey, JSON.stringify(limited));
+            
+            console.log('✅ Dados salvos localmente');
+            return true;
+        } catch (error) {
+            console.error('Erro ao salvar localmente:', error);
+            return false;
+        }
+    }
+
+    // Buscar ranking (tenta backend primeiro, depois local)
+    async getRanking() {
+        try {
+            // Tenta buscar do backend
+            const backendData = await this.tryBackendLoad();
+            if (backendData && backendData.length > 0) {
+                return { data: backendData, source: 'global' };
+            }
+            
+            // Se backend falhar, usa dados locais
+            const localData = this.getLocalRanking();
+            return { data: localData, source: 'local' };
+        } catch (error) {
+            const localData = this.getLocalRanking();
+            return { data: localData, source: 'local' };
+        }
+    }
+
+    // Tentar carregar do backend
+    async tryBackendLoad() {
+        try {
+            // ✅ USA APENAS UMA URL - A DO SEU BACKEND
+            const backendUrl = `${this.backendBaseUrl}/api/ranking/global`;
+            
+            const response = await fetch(backendUrl, {
+                headers: {
+                    'Accept': 'application/json'
+                }
+            });
+            
+            if (response.ok) {
+                const data = await response.json();
+                if (data && data.length > 0) {
+                    return data;
+                }
+            }
+            return null;
+        } catch (error) {
+            console.warn('❌ Erro ao carregar do backend:', error);
+            return null;
+        }
+    }
+
+    // Buscar ranking local
+    getLocalRanking() {
+        try {
+            const data = localStorage.getItem(this.localRankingKey);
+            return data ? JSON.parse(data) : [];
+        } catch (error) {
+            return [];
+        }
+    }
+}
+
+
 class MemoryGame {
     constructor() {
         this.cards = [];
@@ -16,6 +152,7 @@ class MemoryGame {
         this.soundEnabled = true;
         this.playerName = '';
 
+
 // ✅ CONFIGURAÇÃO CORRIGIDA DO JSONBIN
 this.jsonBinConfig = {
     binId: '691f83b443b1c97be9ba5232', // ✅ SEU NOVO BIN ID FUNCIONAL
@@ -29,6 +166,8 @@ this.jsonBinConfig = {
             medium: { pairs: 6, columns: 'cards-6', multiplier: 1.5, baseScore: 150, timeBonus: 75, perfectBonus: 300 },
             hard: { pairs: 8, columns: 'cards-8', multiplier: 2.0, baseScore: 200, timeBonus: 100, perfectBonus: 400 }
         };
+
+        // ✅ REMOVIDO: this.API_BASE_URL não é mais necessário
 
         // Elementos DOM
         this.gameBoard = document.getElementById('gameBoard');
@@ -494,7 +633,7 @@ this.jsonBinConfig = {
         this.currentScore.textContent = this.score;
         
         const efficiency = this.totalPairs > 0 ? 
-            Math.round((this.matchedPairs / this.moves) * 100) || 0 : 0;
+            Math.round((this.matchedPairs / Math.max(1, this.moves)) * 100) : 0;
         this.efficiency.textContent = `${efficiency}%`;
     }
 
@@ -504,7 +643,7 @@ this.jsonBinConfig = {
         let points = config.baseScore;
         
         const minPossibleMoves = this.totalPairs * 2;
-        const efficiency = Math.max(0.5, minPossibleMoves / this.moves);
+        const efficiency = Math.max(0.5, minPossibleMoves / Math.max(1, this.moves));
         points = Math.round(points * efficiency);
         
         points = Math.round(points * this.multiplier);
@@ -570,7 +709,210 @@ this.jsonBinConfig = {
             finalScore += config.perfectBonus;
         }
         
-        return finalScore;
+        return Math.max(0, finalScore);
+    }
+
+    // ✅ SISTEMA DE RANKING HÍBRIDO - ATUALIZADO
+
+    // Mostrar modal para inserir nome
+    showNameModal(finalScore, gameTime) {
+        const modal = document.createElement('div');
+        modal.className = 'modal-overlay';
+        modal.innerHTML = `
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3>🎮 Registrar Pontuação</h3>
+                    <p>Sua pontuação: <strong>${finalScore}</strong> pontos</p>
+                </div>
+                <div class="modal-body">
+                    <p>Digite seu nome para entrar no ranking:</p>
+                    <input 
+                        type="text" 
+                        id="playerNameInput" 
+                        placeholder="Seu nome (2-20 caracteres)" 
+                        maxlength="20"
+                        class="name-input"
+                        value="${localStorage.getItem('playerName') || ''}"
+                    >
+                    <div class="modal-actions">
+                        <button id="submitScoreBtn" class="btn btn-primary">
+                            🏆 Salvar no Ranking
+                        </button>
+                        <button id="skipScoreBtn" class="btn btn-ghost">
+                            Pular
+                        </button>
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        document.body.appendChild(modal);
+        
+        // Foco no input
+        const input = document.getElementById('playerNameInput');
+        input.focus();
+        
+        // Event listeners
+        document.getElementById('submitScoreBtn').addEventListener('click', () => {
+            this.submitScoreToRanking(finalScore, gameTime);
+        });
+        
+        document.getElementById('skipScoreBtn').addEventListener('click', () => {
+            modal.remove();
+            this.showVictoryMessage(finalScore, gameTime, false);
+        });
+        
+        input.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                this.submitScoreToRanking(finalScore, gameTime);
+            }
+        });
+    }
+
+    // ✅ ATUALIZADO: Enviar pontuação para o ranking (Híbrido)
+    async submitScoreToRanking(finalScore, gameTime) {
+        const input = document.getElementById('playerNameInput');
+        const name = input.value.trim();
+        
+        if (name.length < 2 || name.length > 20) {
+            this.showToast('Nome deve ter entre 2 e 20 caracteres');
+            return;
+        }
+        
+        this.playerName = name;
+        localStorage.setItem('playerName', name);
+        
+        const gameData = {
+            playerName: this.playerName,
+            score: finalScore,
+            moves: this.moves,
+            time: gameTime,
+            difficulty: this.currentDifficulty,
+            efficiency: Math.round((this.matchedPairs / Math.max(1, this.moves)) * 100),
+            date: new Date().toISOString()
+        };
+        
+        try {
+            // ✅ USA O SISTEMA HÍBRIDO - funciona offline/online
+            const success = await this.rankingManager.saveToRanking(gameData);
+            
+            if (success) {
+                this.rankingSubmitted = true;
+                document.querySelector('.modal-overlay').remove();
+                this.showVictoryMessage(finalScore, gameTime, true);
+                this.showToast('Pontuação salva com sucesso!');
+            } else {
+                throw new Error('Falha ao salvar pontuação');
+            }
+            
+        } catch (error) {
+            console.error('Erro ao salvar ranking:', error);
+            document.querySelector('.modal-overlay').remove();
+            this.showVictoryMessage(finalScore, gameTime, false);
+            this.showToast('Modo offline - Pontuação salva localmente');
+        }
+    }
+
+    // ✅ ATUALIZADO: Carregar ranking global (Híbrido)
+    async loadGlobalRanking() {
+        try {
+            const result = await this.rankingManager.getRanking();
+            return result.data;
+        } catch (error) {
+            console.error('Erro ao carregar ranking global:', error);
+            return [];
+        }
+    }
+
+    // ✅ ATUALIZADO: Carregar ranking do jogador
+    async loadPlayerRanking(playerName) {
+        try {
+            const allRankings = await this.loadGlobalRanking();
+            return allRankings.filter(record => 
+                record.playerName.toLowerCase() === playerName.toLowerCase()
+            );
+        } catch (error) {
+            console.error('Erro ao carregar ranking do jogador:', error);
+            return [];
+        }
+    }
+
+    // ✅ SISTEMA DE HISTÓRICO LOCAL
+
+    // Salvar partida no histórico
+    saveGameToHistory(finalScore, gameTime, moves, difficulty) {
+        const gameRecord = {
+            score: finalScore,
+            time: gameTime,
+            moves: moves,
+            difficulty: difficulty,
+            date: new Date().toISOString(),
+            timestamp: Date.now(),
+            playerName: this.playerName || 'Anônimo'
+        };
+
+        // Recuperar histórico existente
+        const history = this.getGameHistory();
+        
+        // Adicionar novo registro no início
+        history.unshift(gameRecord);
+        
+        // Manter apenas os últimos 20 registros
+        if (history.length > 20) {
+            history.splice(20);
+        }
+        
+        // Salvar no localStorage
+        localStorage.setItem('memoryGameHistory', JSON.stringify(history));
+        
+        console.log('Partida salva no histórico:', gameRecord);
+    }
+
+    // Recuperar histórico do localStorage
+    getGameHistory() {
+        try {
+            const history = localStorage.getItem('memoryGameHistory');
+            return history ? JSON.parse(history) : [];
+        } catch (error) {
+            console.error('Erro ao carregar histórico:', error);
+            return [];
+        }
+    }
+
+    // Mostrar toast de feedback
+    showToast(message) {
+        const toast = document.createElement('div');
+        toast.textContent = message;
+        toast.style.cssText = `
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: var(--success);
+            color: white;
+            padding: 12px 20px;
+            border-radius: 8px;
+            z-index: 1000;
+            animation: slideUp 0.3s ease;
+        `;
+        
+        document.body.appendChild(toast);
+        
+        setTimeout(() => {
+            toast.remove();
+        }, 3000);
+    }
+
+    // ✅ MÉTODO CORRIGIDO: Nova Dificuldade
+    changeDifficulty() {
+        // Remover overlay de vitória
+        const victoryOverlay = document.querySelector('.victory-overlay');
+        if (victoryOverlay) {
+            victoryOverlay.remove();
+        }
+        
+        this.stopTimer();
+        this.showDifficultySelection();
     }
 
     // ✅ SISTEMA DE RANKING GLOBAL COM JSONBIN
@@ -801,7 +1143,7 @@ async updateJsonBin(ranking) {
         this.saveGameHistory(finalScore, gameTime, this.currentDifficulty);
         
         setTimeout(() => {
-            this.showVictoryMessage(finalScore, gameTime);
+            this.showNameModal(finalScore, gameTime);
         }, 1500);
     }
 
@@ -884,6 +1226,14 @@ async updateJsonBin(ranking) {
                         <span class="rating-label">Desempenho:</span>
                         <span class="rating-value ${performance.class}">${performance.text}</span>
                     </div>
+
+                    ${showRanking ? `
+                    <div class="ranking-actions">
+                        <button onclick="window.memoryGame.showRanking()" class="btn btn-primary">
+                            📊 Ver Ranking
+                        </button>
+                    </div>
+                    ` : ''}
 
                     <div class="victory-actions">
                         <button class="btn btn-primary victory-btn" data-action="restart">
@@ -1203,7 +1553,7 @@ async updateJsonBin(ranking) {
 
     calculatePerformance() {
         const minMoves = this.totalPairs * 2;
-        const efficiency = (minMoves / this.moves) * 100;
+        const efficiency = (minMoves / Math.max(1, this.moves)) * 100;
         
         if (efficiency >= 90) return { text: 'PERFEITO! 🏆', class: 'perfect' };
         if (efficiency >= 75) return { text: 'EXCELENTE! ⭐', class: 'excellent' };
