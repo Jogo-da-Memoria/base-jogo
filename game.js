@@ -1,4 +1,4 @@
-// game.js - Sistema Completo de Feedback Visual e Sonssssoro (VERSÃO CORRIGIDA)
+// game.js - Sistema Completo de Feedback Visual e Sonoro com Histórico Local (CORRIGIDO)
 class MemoryGame {
     constructor() {
         this.cards = [];
@@ -120,6 +120,13 @@ class MemoryGame {
         });
 
         this.setupHapticFeedback();
+        
+        // ✅ ADICIONAR EVENT LISTENER PARA FECHAR HISTÓRICO COM ESC
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') {
+                this.closeHistory();
+            }
+        });
     }
 
     updateSoundButton() {
@@ -149,7 +156,20 @@ class MemoryGame {
         }
     }
 
+    // ✅ ATUALIZAR A FUNÇÃO showDifficultySelection PARA LIMPAR OVERLAY
     showDifficultySelection() {
+        // Fechar overlay de vitória se existir
+        const victoryOverlay = document.querySelector('.victory-overlay');
+        if (victoryOverlay) {
+            victoryOverlay.remove();
+        }
+        
+        // Fechar overlay de histórico se existir
+        const historyOverlay = document.querySelector('.history-overlay');
+        if (historyOverlay) {
+            historyOverlay.remove();
+        }
+        
         document.getElementById('difficultySection').style.display = 'block';
         document.getElementById('gameSection').style.display = 'none';
         this.restartBtn.style.display = 'none';
@@ -158,6 +178,10 @@ class MemoryGame {
         document.querySelectorAll('.difficulty-option').forEach(opt => {
             opt.classList.remove('selected');
         });
+        
+        // Parar timer se estiver rodando
+        this.stopTimer();
+        this.gameStarted = false;
     }
 
     startGame(difficulty) {
@@ -328,7 +352,7 @@ class MemoryGame {
             this.createSparkleEffect(card.element);
         } else {
             card.element.classList.remove('is-flipped');
-            card.element.classList.add('mismatch-shake'); // ✅ CORRIGIDO
+            card.element.classList.add('mismatch-shake');
             setTimeout(() => {
                 card.element.classList.remove('mismatch-shake');
             }, 500);
@@ -527,6 +551,94 @@ class MemoryGame {
         return finalScore;
     }
 
+    // ✅ SISTEMA DE HISTÓRICO LOCAL - IMPLEMENTAÇÃO COMPLETA
+    saveGameHistory(finalScore, gameTime, difficulty) {
+        try {
+            const gameData = {
+                score: finalScore,
+                time: gameTime,
+                moves: this.moves,
+                difficulty: difficulty,
+                date: new Date().toISOString(),
+                efficiency: this.totalPairs > 0 ? 
+                    Math.round((this.matchedPairs / this.moves) * 100) || 0 : 0,
+                pairs: this.totalPairs
+            };
+
+            // Recuperar histórico existente
+            const history = this.getGameHistory();
+            
+            // Adicionar novo registro
+            history.unshift(gameData);
+            
+            // Manter apenas os últimos 50 registros
+            const limitedHistory = history.slice(0, 50);
+            
+            // Salvar no localStorage
+            localStorage.setItem('memoryGameHistory', JSON.stringify(limitedHistory));
+            
+            console.log('Histórico salvo com sucesso!');
+        } catch (error) {
+            console.error('Erro ao salvar histórico:', error);
+        }
+    }
+
+    getGameHistory() {
+        try {
+            const history = localStorage.getItem('memoryGameHistory');
+            return history ? JSON.parse(history) : [];
+        } catch (error) {
+            console.error('Erro ao recuperar histórico:', error);
+            return [];
+        }
+    }
+
+    clearGameHistory() {
+        try {
+            localStorage.removeItem('memoryGameHistory');
+            this.showNotification('Histórico limpo com sucesso!', 'success');
+            // Recarregar a visualização do histórico se estiver aberta
+            const historyOverlay = document.querySelector('.history-overlay');
+            if (historyOverlay) {
+                this.showHistory();
+            }
+            return true;
+        } catch (error) {
+            console.error('Erro ao limpar histórico:', error);
+            this.showNotification('Erro ao limpar histórico', 'error');
+            return false;
+        }
+    }
+
+    showNotification(message, type = 'info') {
+        const notification = document.createElement('div');
+        notification.className = `notification notification-${type}`;
+        notification.textContent = message;
+        notification.style.cssText = `
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: ${type === 'success' ? 'var(--success)' : type === 'error' ? 'var(--danger)' : 'var(--accent)'};
+            color: white;
+            padding: 12px 20px;
+            border-radius: 8px;
+            z-index: 3000;
+            animation: slideInRight 0.3s ease;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+        `;
+        
+        document.body.appendChild(notification);
+        
+        setTimeout(() => {
+            notification.style.animation = 'slideOutRight 0.3s ease';
+            setTimeout(() => {
+                if (notification.parentNode) {
+                    document.body.removeChild(notification);
+                }
+            }, 300);
+        }, 3000);
+    }
+
     endGame() {
         this.stopTimer();
         this.gameStarted = false;
@@ -538,6 +650,9 @@ class MemoryGame {
         
         const finalScore = this.calculateFinalScore();
         const gameTime = this.timer.textContent;
+        
+        // ✅ SALVAR NO HISTÓRICO
+        this.saveGameHistory(finalScore, gameTime, this.currentDifficulty);
         
         setTimeout(() => {
             this.showVictoryMessage(finalScore, gameTime);
@@ -582,6 +697,7 @@ class MemoryGame {
         return colors[Math.floor(Math.random() * colors.length)];
     }
 
+    // ✅ ATUALIZAR A VICTORY MESSAGE PARA CORRIGIR O BOTÃO
     showVictoryMessage(finalScore, gameTime) {
         const performance = this.calculatePerformance();
         
@@ -624,11 +740,14 @@ class MemoryGame {
                     </div>
 
                     <div class="victory-actions">
-                        <button onclick="window.memoryGame.restartGame()" class="btn btn-primary victory-btn">
+                        <button class="btn btn-primary victory-btn" data-action="restart">
                             🎮 Jogar Novamente
                         </button>
-                        <button onclick="window.memoryGame.showDifficultySelection()" class="btn btn-ghost victory-btn">
-                            📊 Nova Dificuldade
+                        <button class="btn btn-secondary victory-btn" data-action="history">
+                            📊 Ver Histórico
+                        </button>
+                        <button class="btn btn-ghost victory-btn" data-action="difficulty">
+                            🔄 Nova Dificuldade
                         </button>
                     </div>
                 </div>
@@ -637,11 +756,162 @@ class MemoryGame {
         
         document.body.insertAdjacentHTML('beforeend', victoryHTML);
         
+        // ✅ ADICIONAR EVENT LISTENERS AOS BOTÕES
+        this.setupVictoryButtons();
+        
         setTimeout(() => {
             const victoryCard = document.querySelector('.victory-card');
             victoryCard.style.transform = 'scale(1)';
             victoryCard.style.opacity = '1';
         }, 100);
+    }
+
+    // ✅ NOVA FUNÇÃO PARA CONFIGURAR OS BOTÕES DE VITÓRIA
+    setupVictoryButtons() {
+        const victoryOverlay = document.querySelector('.victory-overlay');
+        
+        if (victoryOverlay) {
+            victoryOverlay.addEventListener('click', (e) => {
+                const button = e.target.closest('.victory-btn');
+                if (!button) return;
+                
+                const action = button.dataset.action;
+                this.playSound('click');
+                
+                switch (action) {
+                    case 'restart':
+                        this.restartGame();
+                        break;
+                    case 'history':
+                        this.showHistory();
+                        break;
+                    case 'difficulty':
+                        this.showDifficultySelection();
+                        break;
+                }
+            });
+        }
+    }
+
+    // ✅ NOVA FUNÇÃO PARA MOSTRAR HISTÓRICO
+    showHistory() {
+        const history = this.getGameHistory();
+        
+        // Fechar overlay de vitória se existir
+        const victoryOverlay = document.querySelector('.victory-overlay');
+        if (victoryOverlay) {
+            victoryOverlay.remove();
+        }
+        
+        const historyHTML = `
+            <div class="history-overlay">
+                <div class="history-card">
+                    <div class="history-header">
+                        <h2>📊 Histórico de Partidas</h2>
+                        <button class="btn-close" onclick="window.memoryGame.closeHistory()" aria-label="Fechar histórico">
+                            ×
+                        </button>
+                    </div>
+                    
+                    <div class="history-content">
+                        ${history.length === 0 ? 
+                            '<div class="empty-history">Nenhuma partida registrada ainda. Jogue para ver seu histórico!</div>' : 
+                            this.generateHistoryList(history)
+                        }
+                    </div>
+                    
+                    <div class="history-actions">
+                        ${history.length > 0 ? 
+                            `<button onclick="window.memoryGame.clearGameHistoryWithConfirmation()" class="btn btn-danger">
+                                🗑️ Limpar Histórico
+                            </button>` : 
+                            ''
+                        }
+                        <button onclick="window.memoryGame.closeHistory()" class="btn btn-ghost">
+                            Voltar ao Jogo
+                        </button>
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        document.body.insertAdjacentHTML('beforeend', historyHTML);
+    }
+
+    // ✅ FUNÇÃO AUXILIAR PARA CONFIRMAR LIMPEZA DO HISTÓRICO
+    clearGameHistoryWithConfirmation() {
+        if (confirm('Tem certeza que deseja limpar todo o histórico de partidas? Esta ação não pode ser desfeita.')) {
+            this.clearGameHistory();
+        }
+    }
+
+    // ✅ GERAR LISTA DE HISTÓRICO
+    generateHistoryList(history) {
+        return `
+            <div class="history-list">
+                ${history.map((game, index) => `
+                    <div class="history-item ${index === 0 ? 'recent' : ''}">
+                        <div class="history-game-info">
+                            <div class="game-main-stats">
+                                <span class="game-score">${game.score} pts</span>
+                                <span class="game-difficulty badge-${game.difficulty}">${this.getDifficultyName(game.difficulty)}</span>
+                            </div>
+                            <div class="game-details">
+                                <span>${game.moves} jogadas</span>
+                                <span>•</span>
+                                <span>${game.time}</span>
+                                <span>•</span>
+                                <span>${game.efficiency}% eficiência</span>
+                            </div>
+                            <div class="game-date">
+                                ${this.formatDate(game.date)}
+                            </div>
+                        </div>
+                        <div class="history-rank">
+                            #${index + 1}
+                        </div>
+                    </div>
+                `).join('')}
+            </div>
+        `;
+    }
+
+    // ✅ FUNÇÃO AUXILIAR PARA NOME DA DIFICULDADE
+    getDifficultyName(difficulty) {
+        const names = {
+            easy: 'Fácil',
+            medium: 'Médio',
+            hard: 'Difícil'
+        };
+        return names[difficulty] || difficulty;
+    }
+
+    // ✅ FUNÇÃO AUXILIAR PARA FORMATAR DATA
+    formatDate(dateString) {
+        const date = new Date(dateString);
+        return date.toLocaleDateString('pt-BR', {
+            day: '2-digit',
+            month: '2-digit',
+            year: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit'
+        });
+    }
+
+    // ✅ FECHAR HISTÓRICO
+    closeHistory() {
+        const historyOverlay = document.querySelector('.history-overlay');
+        if (historyOverlay) {
+            historyOverlay.remove();
+        }
+        
+        // Se fecharmos o histórico durante o jogo, voltar para o jogo
+        if (this.gameStarted) {
+            document.getElementById('gameSection').style.display = 'block';
+            document.getElementById('difficultySection').style.display = 'none';
+            this.restartBtn.style.display = 'block';
+            this.changeDifficultyBtn.style.display = 'block';
+        }
     }
 
     calculatePerformance() {
@@ -655,14 +925,27 @@ class MemoryGame {
         return { text: 'CONTINUE PRATICANDO! 🌱', class: 'practice' };
     }
 
+    // ✅ ATUALIZAR A FUNÇÃO restartGame PARA SER MAIS ROBUSTA
     restartGame() {
         const victoryOverlay = document.querySelector('.victory-overlay');
         if (victoryOverlay) {
             victoryOverlay.remove();
         }
         
+        const historyOverlay = document.querySelector('.history-overlay');
+        if (historyOverlay) {
+            historyOverlay.remove();
+        }
+        
         this.stopTimer();
-        this.startGame(this.currentDifficulty);
+        
+        // Verificar se há uma dificuldade atual definida
+        if (this.currentDifficulty) {
+            this.startGame(this.currentDifficulty);
+        } else {
+            // Se não houver dificuldade definida, voltar para seleção
+            this.showDifficultySelection();
+        }
     }
 }
 

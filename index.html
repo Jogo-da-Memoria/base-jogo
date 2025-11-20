@@ -36,8 +36,9 @@
 
       <!-- BOTÕES -->
       <div class="actions" aria-hidden="false">
-        <button id="startBtn" class="btn btn-primary" aria-describedby="instrucoes" title="Iniciar Jogo">Iniciar</button>
-        <button id="howBtn" class="btn btn-ghost" aria-expanded="false" aria-controls="instrucoes">Como Jogar</button>
+        <button id="startBtn" class="btn btn-primary" aria-describedby="instrucoes" title="Iniciar Jogo">🎮 Iniciar</button>
+        <button id="historyBtn" class="btn btn-secondary" aria-label="Ver histórico de partidas">📊 Histórico</button>
+        <button id="howBtn" class="btn btn-ghost" aria-expanded="false" aria-controls="instrucoes">❓ Como Jogar</button>
       </div>
 
       <!-- INSTRUÇÕES -->
@@ -59,13 +60,13 @@
             </div>
             <div class="step">
               <span class="dot" aria-hidden="true"></span>
-              <div><strong>Voltar:</strong> Ao final da partida você pode reiniciar ou ver o histórico.</div>
+              <div><strong>Histórico:</strong> Acompanhe seu desempenho nas partidas anteriores.</div>
             </div>
           </div>
 
           <footer class="meta" aria-hidden="false">
             <span>Tempo estimado de partida: 2–5 minutos</span>
-            <span>Versão: 1.0</span>
+            <span>Versão: 1.1</span>
           </footer>
         </div>
       </div>
@@ -74,13 +75,19 @@
 
   <!-- JAVASCRIPT DA TELA INICIAL -->
   <script>
-    // JavaScript para tela inicial - SIMPLIFICADO
+    // JavaScript para tela inicial - ATUALIZADO COM HISTÓRICO
     const startBtn = document.getElementById('startBtn');
+    const historyBtn = document.getElementById('historyBtn');
     const howBtn = document.getElementById('howBtn');
 
     // Botão "Iniciar": redireciona para o tabuleiro
     startBtn.addEventListener('click', () => {
       window.location.href = 'game.html';
+    });
+
+    // Botão "Histórico": mostra histórico na tela inicial
+    historyBtn.addEventListener('click', () => {
+      showHistoryOnHome();
     });
 
     // Botão "Como Jogar": rola suavemente até as instruções
@@ -89,13 +96,218 @@
       instrucoes.scrollIntoView({ behavior: 'smooth', block: 'center' });
     });
 
+    // ✅ FUNÇÃO PARA MOSTRAR HISTÓRICO NA TELA INICIAL
+    function showHistoryOnHome() {
+      try {
+        const history = JSON.parse(localStorage.getItem('memoryGameHistory') || '[]');
+        
+        const historyHTML = `
+          <div class="history-overlay">
+            <div class="history-card">
+              <div class="history-header">
+                <h2>📊 Histórico de Partidas</h2>
+                <button class="btn-close" onclick="closeHistoryOnHome()" aria-label="Fechar histórico">
+                  ×
+                </button>
+              </div>
+              
+              <div class="history-content">
+                ${history.length === 0 ? 
+                  '<div class="empty-history">🎯 Nenhuma partida registrada ainda.<br><br>Jogue uma partida para ver seu histórico de desempenho!</div>' : 
+                  generateHistoryList(history)
+                }
+              </div>
+              
+              <div class="history-actions">
+                ${history.length > 0 ? 
+                  `<button onclick="clearGameHistory()" class="btn btn-danger">
+                    🗑️ Limpar Histórico
+                  </button>` : 
+                  ''
+                }
+                <button onclick="closeHistoryOnHome()" class="btn btn-ghost">
+                  Fechar
+                </button>
+              </div>
+            </div>
+          </div>
+        `;
+        
+        document.body.insertAdjacentHTML('beforeend', historyHTML);
+      } catch (error) {
+        console.error('Erro ao carregar histórico:', error);
+        alert('Erro ao carregar histórico de partidas.');
+      }
+    }
+
+    // ✅ FUNÇÕES AUXILIARES PARA A TELA INICIAL
+    function generateHistoryList(history) {
+      return `
+        <div class="history-list">
+          ${history.map((game, index) => `
+            <div class="history-item ${index === 0 ? 'recent' : ''}">
+              <div class="history-game-info">
+                <div class="game-main-stats">
+                  <span class="game-score">${game.score} pts</span>
+                  <span class="game-difficulty badge-${game.difficulty}">${getDifficultyName(game.difficulty)}</span>
+                </div>
+                <div class="game-details">
+                  <span>${game.moves} jogadas</span>
+                  <span>•</span>
+                  <span>${game.time}</span>
+                  <span>•</span>
+                  <span>${game.efficiency}% eficiência</span>
+                </div>
+                <div class="game-date">
+                  ${formatDate(game.date)}
+                </div>
+              </div>
+              <div class="history-rank">
+                #${index + 1}
+              </div>
+            </div>
+          `).join('')}
+        </div>
+      `;
+    }
+
+    function getDifficultyName(difficulty) {
+      const names = { 
+        easy: 'Fácil', 
+        medium: 'Médio', 
+        hard: 'Difícil' 
+      };
+      return names[difficulty] || difficulty;
+    }
+
+    function formatDate(dateString) {
+      try {
+        const date = new Date(dateString);
+        return date.toLocaleDateString('pt-BR', {
+          day: '2-digit', 
+          month: '2-digit', 
+          year: 'numeric',
+          hour: '2-digit', 
+          minute: '2-digit'
+        });
+      } catch (error) {
+        return 'Data inválida';
+      }
+    }
+
+    function closeHistoryOnHome() {
+      const historyOverlay = document.querySelector('.history-overlay');
+      if (historyOverlay) {
+        historyOverlay.remove();
+      }
+    }
+
+    function clearGameHistory() {
+      if (confirm('Tem certeza que deseja limpar todo o histórico de partidas?\n\nEsta ação não pode ser desfeita.')) {
+        try {
+          localStorage.removeItem('memoryGameHistory');
+          closeHistoryOnHome();
+          // Mostrar notificação de sucesso
+          showNotification('Histórico limpo com sucesso!');
+          // Recarregar histórico vazio
+          setTimeout(showHistoryOnHome, 500);
+        } catch (error) {
+          alert('Erro ao limpar histórico.');
+        }
+      }
+    }
+
+    function showNotification(message) {
+      // Criar notificação simples
+      const notification = document.createElement('div');
+      notification.textContent = message;
+      notification.style.cssText = `
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        background: var(--success);
+        color: white;
+        padding: 12px 20px;
+        border-radius: 8px;
+        z-index: 3000;
+        animation: slideInRight 0.3s ease;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+      `;
+      
+      document.body.appendChild(notification);
+      
+      setTimeout(() => {
+        notification.style.animation = 'slideOutRight 0.3s ease';
+        setTimeout(() => {
+          if (notification.parentNode) {
+            document.body.removeChild(notification);
+          }
+        }, 300);
+      }, 3000);
+    }
+
     // Acessibilidade: tecla Enter ou espaço inicia o jogo
     document.addEventListener('keydown', (e) => {
       if ((e.key === 'Enter' || e.key === ' ') && document.activeElement === startBtn) {
         e.preventDefault();
         startBtn.click();
       }
+      
+      // Acessibilidade para botão de histórico
+      if ((e.key === 'Enter' || e.key === ' ') && document.activeElement === historyBtn) {
+        e.preventDefault();
+        historyBtn.click();
+      }
     });
+
+    // Animações CSS dinâmicas para notificações
+    const style = document.createElement('style');
+    style.textContent = `
+      @keyframes slideInRight {
+        from {
+          transform: translateX(100%);
+          opacity: 0;
+        }
+        to {
+          transform: translateX(0);
+          opacity: 1;
+        }
+      }
+      
+      @keyframes slideOutRight {
+        from {
+          transform: translateX(0);
+          opacity: 1;
+        }
+        to {
+          transform: translateX(100%);
+          opacity: 0;
+        }
+      }
+      
+      .btn-secondary {
+        background: var(--muted);
+        color: white;
+        border: none;
+      }
+      
+      .btn-secondary:hover {
+        background: #4b5563;
+        transform: translateY(-1px);
+      }
+      
+      .btn-danger {
+        background: var(--danger);
+        color: white;
+        border: none;
+      }
+      
+      .btn-danger:hover {
+        background: #dc2626;
+        transform: translateY(-1px);
+      }
+    `;
+    document.head.appendChild(style);
   </script>
 </body>
 </html>
