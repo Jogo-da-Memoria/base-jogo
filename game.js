@@ -16,9 +16,9 @@ class MemoryGame {
         this.soundEnabled = true;
         this.playerName = '';
 
-        // ✅ CONFIGURAÇÃO COMPLETA DO JSONBIN
+                // ✅ CONFIGURAÇÃO ATUALIZADA DO JSONBIN - USE ESTA!
         this.jsonBinConfig = {
-            binId: '691f9eee43b1c97be9ba70c1',
+            binId: '691fa223d0ea881f40f57287',  // ← NOVO BIN ID
             apiKey: '$2a$10$MadCefOfSTPt.k3y99.HfOseVkFhg3rCCnjMbFVzbF/ouRAQpGUKO',
             baseUrl: 'https://api.jsonbin.io/v3/b'
         };
