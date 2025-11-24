@@ -153,10 +153,38 @@ class MemoryGame {
                 console.log(`✅ Som ${name} carregado via AudioBuffer`);
             } catch (error) {
                 console.warn(`❌ Erro ao carregar som ${name}:`, error);
+                // Criar som fallback simples
+                this.createFallbackSound(name);
             }
         });
 
         await Promise.all(loadPromises);
+    }
+
+    // ✅ FALLBACK PARA SONS
+    createFallbackSound(type) {
+        try {
+            const buffer = this.audioContext.createBuffer(1, 22050, 22050);
+            const data = buffer.getChannelData(0);
+            
+            let frequency = 440;
+            switch(type) {
+                case 'flip': frequency = 523; break;
+                case 'match': frequency = 659; break;
+                case 'mismatch': frequency = 392; break;
+                case 'victory': frequency = 784; break;
+                case 'click': frequency = 330; break;
+            }
+            
+            for (let i = 0; i < 22050; i++) {
+                data[i] = Math.sin(2 * Math.PI * frequency * i / 22050) * 0.5;
+            }
+            
+            this.soundBuffers[type] = buffer;
+            console.log(`🔧 Som fallback criado para: ${type}`);
+        } catch (error) {
+            console.warn(`❌ Não foi possível criar fallback para ${type}`);
+        }
     }
 
     // ✅ CARREGAR CONFIGURAÇÕES SALVAS
@@ -305,18 +333,14 @@ class MemoryGame {
                 gainNode.connect(this.audioContext.destination);
                 
                 // Configurar volume
-                gainNode.gain.value = 1.0;
+                gainNode.gain.value = 0.7;
                 
                 // Reproduzir - NÃO INTERFERE NA MÚSICA DE FUNDO
                 source.start(0);
                 
-                console.log(`🔊 Som ${type} reproduzido simultaneamente com música`);
-                
             } catch (error) {
                 console.warn(`❌ Erro ao reproduzir som ${type}:`, error);
             }
-        } else {
-            console.warn(`❌ Buffer de som ${type} não encontrado`);
         }
     }
 
@@ -360,9 +384,6 @@ class MemoryGame {
             this.updateMusicButton();
         }
     }
-
-    // ❌ REMOVIDO: Não precisamos mais pausar a música para efeitos
-    // As funções pauseBackgroundMusic() e resumeBackgroundMusic() foram REMOVIDAS
 
     // ✅ ATUALIZAR A FUNÇÃO showDifficultySelection PARA LIMPAR OVERLAY
     showDifficultySelection() {
@@ -553,11 +574,8 @@ class MemoryGame {
             return;
         }
 
-        this.playSound('flip'); // ✅ AGORA NÃO INTERFERE NA MÚSICA
+        this.playSound('flip');
         this.vibrate(50);
-
-        // ❌ REMOVIDO: Não pausamos mais a música de fundo
-        // A música continua tocando normalmente
 
         this.flipCardWithAnimation(card, true);
         this.flippedCards.push(card);
@@ -622,11 +640,8 @@ class MemoryGame {
     }
 
     handleMatch(card1, card2) {
-        this.playSound('match'); // ✅ AGORA NÃO INTERFERE NA MÚSICA
+        this.playSound('match');
         this.vibrate([100, 50, 100]);
-
-        // ❌ REMOVIDO: Não pausamos mais a música de fundo
-        // A música continua tocando normalmente
 
         card1.isMatched = true;
         card2.isMatched = true;
@@ -684,11 +699,8 @@ class MemoryGame {
     }
 
     handleMismatch(card1, card2) {
-        this.playSound('mismatch'); // ✅ AGORA NÃO INTERFERE NA MÚSICA
+        this.playSound('mismatch');
         this.vibrate(200);
-
-        // ❌ REMOVIDO: Não pausamos mais a música de fundo
-        // A música continua tocando normalmente
 
         card1.element.classList.add('mismatch-shake');
         card2.element.classList.add('mismatch-shake');
@@ -787,7 +799,7 @@ class MemoryGame {
         return finalScore;
     }
 
-    // ✅ SISTEMA DE RANKING GLOBAL COM SUPABASE
+    // ✅ SISTEMA DE RANKING GLOBAL COM SUPABASE - ATUALIZADO
     async saveGameHistory(finalScore, gameTime, difficulty) {
         try {
             const gameData = {
@@ -817,7 +829,87 @@ class MemoryGame {
         }
     }
 
-    // ✅ CORREÇÃO DO SISTEMA DE RANKING - FUNÇÃO ATUALIZADA
+    // ✅ FUNÇÃO CORRIGIDA PARA BUSCAR RANKING DO SUPABASE
+    async fetchGlobalRanking() {
+        try {
+            console.log('🌐 Buscando ranking do Supabase...');
+            
+            const response = await fetch(
+                `${this.supabaseConfig.url}/rest/v1/${this.supabaseConfig.table}?select=player_name,score,moves,game_time,difficulty,efficiency,created_at&score=gt.0&order=score.desc,moves.asc&limit=50`,
+                {
+                    method: 'GET',
+                    headers: {
+                        'apikey': this.supabaseConfig.key,
+                        'Authorization': `Bearer ${this.supabaseConfig.key}`,
+                        'Content-Type': 'application/json',
+                        'Prefer': 'return=representation'
+                    }
+                }
+            );
+
+            console.log('📡 Status da resposta:', response.status);
+            
+            if (!response.ok) {
+                const errorText = await response.text();
+                console.error('❌ Erro na resposta:', response.status, response.statusText, errorText);
+                throw new Error(`Erro HTTP! status: ${response.status}`);
+            }
+            
+            const data = await response.json();
+            console.log('✅ Dados brutos recebidos:', data);
+            
+            // Verificar se os dados são válidos
+            if (!Array.isArray(data)) {
+                console.warn('❌ Dados não são um array:', data);
+                return this.getLocalRankingFallback();
+            }
+            
+            console.log('✅ Ranking carregado:', data.length, 'jogadores');
+            
+            // Converter formato do Supabase com validações robustas
+            const formattedRanking = data
+                .filter(player => {
+                    const isValid = player && 
+                        player.player_name && 
+                        player.player_name.trim() !== '' &&
+                        player.score > 0;
+                    
+                    if (!isValid) {
+                        console.warn('❌ Jogador inválido filtrado:', player);
+                    }
+                    return isValid;
+                })
+                .map((player, index) => ({
+                    rank: index + 1,
+                    playerName: (player.player_name || 'Jogador').trim(),
+                    score: parseInt(player.score) || 0,
+                    moves: parseInt(player.moves) || 0,
+                    time: player.game_time || '00:00',
+                    difficulty: player.difficulty || 'easy',
+                    efficiency: parseFloat(player.efficiency) || 0,
+                    date: player.created_at || new Date().toISOString()
+                }))
+                .sort((a, b) => {
+                    // Ordenar por score (decrescente) e depois por moves (crescente)
+                    if (b.score !== a.score) {
+                        return b.score - a.score;
+                    }
+                    return a.moves - b.moves;
+                });
+            
+            console.log('✅ Ranking formatado:', formattedRanking.length, 'jogadores válidos');
+            return formattedRanking;
+            
+        } catch (error) {
+            console.warn('❌ Erro ao buscar ranking online:', error);
+            // Fallback para localStorage
+            const fallback = this.getLocalRankingFallback();
+            console.log('🔄 Usando fallback local:', fallback.length, 'jogadores');
+            return fallback;
+        }
+    }
+
+    // ✅ FUNÇÃO ATUALIZADA PARA MOSTRAR RANKING GLOBAL
     async showGlobalRanking(source = 'menu') {
         try {
             console.log(`🌐 Buscando ranking global (fonte: ${source})...`);
@@ -835,7 +927,7 @@ class MemoryGame {
                 return;
             }
             
-            console.log('✅ Ranking carregado com sucesso:', globalRanking.length, 'jogadores');
+            console.log('🎯 Exibindo ranking com:', globalRanking.length, 'jogadores');
             
             const rankingHTML = `
                 <div class="ranking-overlay">
@@ -882,14 +974,13 @@ class MemoryGame {
                 </div>
             `;
             
-            // ✅ REMOVER OVERLAY EXISTENTE ANTES DE ADICIONAR NOVO
             this.closeRanking();
             document.body.insertAdjacentHTML('beforeend', rankingHTML);
             
         } catch (error) {
             console.error('❌ Erro ao carregar ranking:', error);
             this.showNotification('❌ Erro ao carregar ranking global', 'error');
-            this.showEmptyRanking(); // Fallback
+            this.showEmptyRanking();
         }
     }
 
@@ -932,168 +1023,48 @@ class MemoryGame {
         document.body.insertAdjacentHTML('beforeend', emptyHTML);
     }
 
-    // ✅ ATUALIZAR FUNÇÃO DE BUSCA DO RANKING
-    async fetchGlobalRanking() {
-        try {
-            console.log('🌐 Buscando ranking do Supabase...');
-            
-            const response = await fetch(
-                `${this.supabaseConfig.url}/rest/v1/${this.supabaseConfig.table}?select=*&order=score.desc&limit=100`,
-                {
-                    method: 'GET',
-                    headers: {
-                        'apikey': this.supabaseConfig.key,
-                        'Authorization': `Bearer ${this.supabaseConfig.key}`,
-                        'Content-Type': 'application/json'
-                    }
-                }
-            );
-
-            if (!response.ok) {
-                throw new Error(`Erro HTTP! status: ${response.status}`);
-            }
-            
-            const ranking = await response.json();
-            console.log('✅ Ranking carregado:', ranking.length, 'jogadores');
-            
-            // ✅ VERIFICAR E CONVERTER DADOS
-            if (!Array.isArray(ranking)) {
-                console.warn('❌ Ranking não é um array:', ranking);
-                return this.getLocalRankingFallback();
-            }
-            
-            // Converter formato do Supabase para formato do jogo
-            const formattedRanking = ranking.map(player => ({
-                playerName: player.player_name || 'Jogador',
-                score: player.score || 0,
-                moves: player.moves || 0,
-                time: player.game_time || '00:00',
-                difficulty: player.difficulty || 'easy',
-                efficiency: player.efficiency || 0,
-                date: player.created_at || new Date().toISOString()
-            })).filter(player => player.score > 0); // ✅ FILTRAR JOGADORES VÁLIDOS
-            
-            console.log('✅ Ranking formatado:', formattedRanking.length, 'jogadores válidos');
-            return formattedRanking;
-            
-        } catch (error) {
-            console.warn('❌ Erro ao buscar ranking online:', error);
-            return this.getLocalRankingFallback();
-        }
-    }
-
-    // ✅ SALVAR NO SUPABASE RANKING
+    // ✅ SALVAR NO SUPABASE RANKING - ATUALIZADO
     async saveToSupabaseRanking(gameData) {
         try {
             console.log('💾 Salvando no Supabase...', gameData);
             
-            // 1. Buscar jogador existente
-            const existingResponse = await fetch(
-                `${this.supabaseConfig.url}/rest/v1/${this.supabaseConfig.table}?player_name=eq.${encodeURIComponent(gameData.playerName)}&difficulty=eq.${gameData.difficulty}`,
+            // Preparar dados para o Supabase
+            const supabaseData = {
+                player_name: gameData.playerName,
+                score: gameData.score,
+                moves: gameData.moves,
+                game_time: gameData.time,
+                difficulty: gameData.difficulty,
+                efficiency: gameData.efficiency,
+                created_at: new Date().toISOString()
+            };
+
+            // Tentar adicionar novo registro
+            const response = await fetch(
+                `${this.supabaseConfig.url}/rest/v1/${this.supabaseConfig.table}`,
                 {
-                    method: 'GET',
+                    method: 'POST',
                     headers: {
                         'apikey': this.supabaseConfig.key,
                         'Authorization': `Bearer ${this.supabaseConfig.key}`,
-                        'Content-Type': 'application/json'
-                    }
+                        'Content-Type': 'application/json',
+                        'Prefer': 'return=minimal'
+                    },
+                    body: JSON.stringify(supabaseData)
                 }
             );
 
-            let playerExists = false;
-            let existingPlayerId = null;
-
-            if (existingResponse.ok) {
-                const existingPlayers = await existingResponse.json();
-                if (existingPlayers.length > 0) {
-                    playerExists = true;
-                    existingPlayerId = existingPlayers[0].id;
-                }
-            }
-
-            if (playerExists && existingPlayerId) {
-                // 2A. ATUALIZAR jogador existente se score for maior
-                const currentResponse = await fetch(
-                    `${this.supabaseConfig.url}/rest/v1/${this.supabaseConfig.table}?id=eq.${existingPlayerId}`,
-                    {
-                        method: 'GET',
-                        headers: {
-                            'apikey': this.supabaseConfig.key,
-                            'Authorization': `Bearer ${this.supabaseConfig.key}`,
-                            'Content-Type': 'application/json'
-                        }
-                    }
-                );
-
-                if (currentResponse.ok) {
-                    const currentPlayer = (await currentResponse.json())[0];
-                    
-                    if (gameData.score > currentPlayer.score) {
-                        // Atualizar pontuação
-                        const updateResponse = await fetch(
-                            `${this.supabaseConfig.url}/rest/v1/${this.supabaseConfig.table}?id=eq.${existingPlayerId}`,
-                            {
-                                method: 'PATCH',
-                                headers: {
-                                    'apikey': this.supabaseConfig.key,
-                                    'Authorization': `Bearer ${this.supabaseConfig.key}`,
-                                    'Content-Type': 'application/json',
-                                    'Prefer': 'return=minimal'
-                                },
-                                body: JSON.stringify({
-                                    score: gameData.score,
-                                    moves: gameData.moves,
-                                    game_time: gameData.time,
-                                    efficiency: gameData.efficiency,
-                                    created_at: new Date().toISOString()
-                                })
-                            }
-                        );
-                        
-                        if (updateResponse.ok) {
-                            console.log('🔄 Pontuação atualizada para:', gameData.playerName);
-                            this.showNotification('🎉 Nova pontuação recorde!', 'success');
-                        } else {
-                            throw new Error('Falha ao atualizar jogador');
-                        }
-                    } else {
-                        console.log('ℹ️ Pontuação mantida para:', gameData.playerName);
-                        this.showNotification('Pontuação salva!', 'info');
-                    }
-                }
+            if (response.ok) {
+                console.log('✅ Novo registro adicionado ao Supabase');
+                this.showNotification('🎉 Pontuação salva no ranking!', 'success');
+                return true;
+            } else if (response.status === 409) {
+                // Conflito - jogador já existe, tentar atualizar
+                console.log('🔄 Jogador já existe, tentando atualizar...');
+                return await this.updateExistingPlayer(gameData);
             } else {
-                // 2B. ADICIONAR novo jogador
-                const addResponse = await fetch(
-                    `${this.supabaseConfig.url}/rest/v1/${this.supabaseConfig.table}`,
-                    {
-                        method: 'POST',
-                        headers: {
-                            'apikey': this.supabaseConfig.key,
-                            'Authorization': `Bearer ${this.supabaseConfig.key}`,
-                            'Content-Type': 'application/json',
-                            'Prefer': 'return=minimal'
-                        },
-                        body: JSON.stringify({
-                            player_name: gameData.playerName,
-                            score: gameData.score,
-                            moves: gameData.moves,
-                            game_time: gameData.time,
-                            difficulty: gameData.difficulty,
-                            efficiency: gameData.efficiency
-                        })
-                    }
-                );
-                
-                if (addResponse.ok) {
-                    console.log('👤 Novo jogador adicionado:', gameData.playerName);
-                    this.showNotification('🎉 Novo recorde no ranking!', 'success');
-                } else {
-                    throw new Error('Falha ao adicionar jogador');
-                }
+                throw new Error(`Falha ao salvar: ${response.status}`);
             }
-            
-            console.log('✅ Ranking atualizado no Supabase!');
-            return true;
             
         } catch (error) {
             console.error('❌ Erro ao salvar no Supabase:', error);
@@ -1102,6 +1073,74 @@ class MemoryGame {
             // Fallback para localStorage
             this.saveToLocalRanking(gameData);
             return false;
+        }
+    }
+
+    // ✅ ATUALIZAR JOGADOR EXISTENTE
+    async updateExistingPlayer(gameData) {
+        try {
+            // Buscar ID do jogador existente
+            const searchResponse = await fetch(
+                `${this.supabaseConfig.url}/rest/v1/${this.supabaseConfig.table}?player_name=eq.${encodeURIComponent(gameData.playerName)}&difficulty=eq.${gameData.difficulty}&select=id,score`,
+                {
+                    method: 'GET',
+                    headers: {
+                        'apikey': this.supabaseConfig.key,
+                        'Authorization': `Bearer ${this.supabaseConfig.key}`,
+                        'Content-Type': 'application/json'
+                    }
+                }
+            );
+
+            if (!searchResponse.ok) {
+                throw new Error('Falha ao buscar jogador existente');
+            }
+
+            const existingPlayers = await searchResponse.json();
+            if (existingPlayers.length === 0) {
+                throw new Error('Jogador não encontrado para atualização');
+            }
+
+            const existingPlayer = existingPlayers[0];
+            
+            // Só atualizar se a nova pontuação for maior
+            if (gameData.score > existingPlayer.score) {
+                const updateResponse = await fetch(
+                    `${this.supabaseConfig.url}/rest/v1/${this.supabaseConfig.table}?id=eq.${existingPlayer.id}`,
+                    {
+                        method: 'PATCH',
+                        headers: {
+                            'apikey': this.supabaseConfig.key,
+                            'Authorization': `Bearer ${this.supabaseConfig.key}`,
+                            'Content-Type': 'application/json',
+                            'Prefer': 'return=minimal'
+                        },
+                        body: JSON.stringify({
+                            score: gameData.score,
+                            moves: gameData.moves,
+                            game_time: gameData.time,
+                            efficiency: gameData.efficiency,
+                            created_at: new Date().toISOString()
+                        })
+                    }
+                );
+
+                if (updateResponse.ok) {
+                    console.log('🔄 Pontuação atualizada para:', gameData.playerName);
+                    this.showNotification('🎉 Nova pontuação recorde!', 'success');
+                    return true;
+                } else {
+                    throw new Error('Falha ao atualizar jogador');
+                }
+            } else {
+                console.log('ℹ️ Pontuação mantida para:', gameData.playerName);
+                this.showNotification('Pontuação salva!', 'info');
+                return true;
+            }
+            
+        } catch (error) {
+            console.error('❌ Erro ao atualizar jogador:', error);
+            throw error;
         }
     }
 
@@ -1159,22 +1198,6 @@ class MemoryGame {
         }
     }
 
-    clearGameHistory() {
-        try {
-            localStorage.removeItem('memoryGameHistory');
-            this.showNotification('Histórico limpo com sucesso!', 'success');
-            const historyOverlay = document.querySelector('.history-overlay');
-            if (historyOverlay) {
-                this.showHistory();
-            }
-            return true;
-        } catch (error) {
-            console.error('Erro ao limpar histórico:', error);
-            this.showNotification('Erro ao limpar histórico', 'error');
-            return false;
-        }
-    }
-
     showNotification(message, type = 'info') {
         const notification = document.createElement('div');
         notification.className = `notification notification-${type}`;
@@ -1208,11 +1231,8 @@ class MemoryGame {
         this.stopTimer();
         this.gameStarted = false;
         
-        this.playSound('victory'); // ✅ AGORA NÃO INTERFERE NA MÚSICA
+        this.playSound('victory');
         this.vibrate([100, 50, 100, 50, 100]);
-
-        // ❌ REMOVIDO: Não pausamos mais a música de fundo
-        // A música continua tocando normalmente durante a vitória
 
         this.createConfettiEffect();
         
@@ -1596,6 +1616,22 @@ class MemoryGame {
             this.startGame(this.currentDifficulty);
         } else {
             this.showDifficultySelection();
+        }
+    }
+
+    clearGameHistory() {
+        try {
+            localStorage.removeItem('memoryGameHistory');
+            this.showNotification('Histórico limpo com sucesso!', 'success');
+            const historyOverlay = document.querySelector('.history-overlay');
+            if (historyOverlay) {
+                this.showHistory();
+            }
+            return true;
+        } catch (error) {
+            console.error('Erro ao limpar histórico:', error);
+            this.showNotification('Erro ao limpar histórico', 'error');
+            return false;
         }
     }
 }

@@ -23,7 +23,7 @@
           <input 
             type="text" 
             id="playerName" 
-            placeholder="Ex: João Silva" 
+            placeholder="Ex: Igor Rodrigues" 
             maxlength="20"
             required
             autocomplete="off"
@@ -334,48 +334,85 @@
       }
     }
 
-    // ✅ FUNÇÃO PARA BUSCAR RANKING DO SUPABASE
+    // ✅ FUNÇÃO CORRIGIDA PARA BUSCAR RANKING DO SUPABASE
     async function fetchGlobalRanking() {
-      try {
-        console.log('🌐 Buscando ranking do Supabase...');
-        
-        const response = await fetch(
-          `${supabaseConfig.url}/rest/v1/${supabaseConfig.table}?select=*&order=score.desc&limit=100`,
-          {
-            method: 'GET',
-            headers: {
-              'apikey': supabaseConfig.key,
-              'Authorization': `Bearer ${supabaseConfig.key}`,
-              'Content-Type': 'application/json'
-            }
-          }
-        );
+        try {
+            console.log('🌐 Buscando ranking do Supabase...');
+            
+            // URL correta com query parameters otimizados
+            const response = await fetch(
+                `${supabaseConfig.url}/rest/v1/${supabaseConfig.table}?select=player_name,score,moves,game_time,difficulty,efficiency,created_at&score=gt.0&order=score.desc,moves.asc&limit=50`,
+                {
+                    method: 'GET',
+                    headers: {
+                        'apikey': supabaseConfig.key,
+                        'Authorization': `Bearer ${supabaseConfig.key}`,
+                        'Content-Type': 'application/json',
+                        'Prefer': 'return=representation'
+                    }
+                }
+            );
 
-        if (!response.ok) {
-          throw new Error(`Erro HTTP! status: ${response.status}`);
+            console.log('📡 Status da resposta:', response.status);
+            
+            if (!response.ok) {
+                const errorText = await response.text();
+                console.error('❌ Erro na resposta:', response.status, response.statusText, errorText);
+                throw new Error(`Erro HTTP! status: ${response.status}`);
+            }
+            
+            const data = await response.json();
+            console.log('✅ Dados brutos recebidos:', data);
+            
+            // Verificar se os dados são válidos
+            if (!Array.isArray(data)) {
+                console.warn('❌ Dados não são um array:', data);
+                return getLocalRankingFallback();
+            }
+            
+            console.log('✅ Ranking carregado:', data.length, 'jogadores');
+            
+            // Converter formato do Supabase com validações robustas
+            const formattedRanking = data
+                .filter(player => {
+                    const isValid = player && 
+                        player.player_name && 
+                        player.player_name.trim() !== '' &&
+                        player.score > 0;
+                    
+                    if (!isValid) {
+                        console.warn('❌ Jogador inválido filtrado:', player);
+                    }
+                    return isValid;
+                })
+                .map((player, index) => ({
+                    rank: index + 1,
+                    playerName: (player.player_name || 'Jogador').trim(),
+                    score: parseInt(player.score) || 0,
+                    moves: parseInt(player.moves) || 0,
+                    time: player.game_time || '00:00',
+                    difficulty: player.difficulty || 'easy',
+                    efficiency: parseFloat(player.efficiency) || 0,
+                    date: player.created_at || new Date().toISOString()
+                }))
+                .sort((a, b) => {
+                    // Ordenar por score (decrescente) e depois por moves (crescente)
+                    if (b.score !== a.score) {
+                        return b.score - a.score;
+                    }
+                    return a.moves - b.moves;
+                });
+            
+            console.log('✅ Ranking formatado:', formattedRanking.length, 'jogadores válidos');
+            return formattedRanking;
+            
+        } catch (error) {
+            console.warn('❌ Erro ao buscar ranking online:', error);
+            // Fallback para localStorage
+            const fallback = getLocalRankingFallback();
+            console.log('🔄 Usando fallback local:', fallback.length, 'jogadores');
+            return fallback;
         }
-        
-        const ranking = await response.json();
-        console.log('✅ Ranking carregado:', ranking.length, 'jogadores');
-        
-        // Converter formato do Supabase
-        const formattedRanking = ranking.map(player => ({
-          playerName: player.player_name || 'Jogador',
-          score: player.score || 0,
-          moves: player.moves || 0,
-          time: player.game_time || '00:00',
-          difficulty: player.difficulty || 'easy',
-          efficiency: player.efficiency || 0,
-          date: player.created_at || new Date().toISOString()
-        })).filter(player => player.score > 0);
-        
-        return formattedRanking;
-        
-      } catch (error) {
-        console.warn('❌ Erro ao buscar ranking online:', error);
-        // Fallback para localStorage
-        return getLocalRankingFallback();
-      }
     }
 
     // ✅ FALLBACK LOCAL
