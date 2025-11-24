@@ -18,6 +18,7 @@ class MemoryGame {
         this.musicStarted = false;
         this.playerName = '';
         this.audioContext = null;
+        this.soundBuffers = {}; // ✅ NOVO: Buffer para sons de efeitos
 
         // ✅ CONFIGURAÇÃO DO SUPABASE
         this.supabaseConfig = {
@@ -49,14 +50,9 @@ class MemoryGame {
         this.soundLoader = document.getElementById('soundLoader');
         this.visualEffects = document.getElementById('visualEffects');
 
-        // Elementos de áudio
+        // Elementos de áudio - APENAS música de fundo usa elemento <audio>
         this.sounds = {
-            flip: document.getElementById('flipSound'),
-            match: document.getElementById('matchSound'),
-            mismatch: document.getElementById('mismatchSound'),
-            victory: document.getElementById('victorySound'),
-            click: document.getElementById('clickSound'),
-            background: document.getElementById('musica_fundo')
+            background: document.getElementById('musica_fundo') // ✅ APENAS música de fundo
         };
 
         this.init(); 
@@ -73,20 +69,17 @@ class MemoryGame {
         // ✅ VERIFICAR SE DEVE INICIAR MÚSICA (vindo do index.html)
         const shouldStartMusic = localStorage.getItem('memoryGameStartMusic');
         if (shouldStartMusic === 'true') {
-            this.musicStarted = false; // Forçar início da música
-            this.musicEnabled = true; // Garantir que música está ativada
-            localStorage.removeItem('memoryGameStartMusic'); // Limpar flag
+            this.musicStarted = false;
+            this.musicEnabled = true;
+            localStorage.removeItem('memoryGameStartMusic');
             console.log('🎵 Iniciando música vindo do index.html');
         }
 
         // ✅ CARREGAR CONFIGURAÇÕES SALVAS
         this.loadSettings();
 
-        // ✅ ATIVAR ÁUDIO PARA DISPOSITIVOS MÓVEIS
-        this.enableMobileAudio();
-        
-        // ✅ PRÉ-CARREGAR SONS COM MELHOR TRATAMENTO
-        await this.preloadSounds();
+        // ✅ INICIAR SISTEMA DE ÁUDIO
+        await this.initAudioSystem();
         
         // ✅ CONFIGURAR EVENT LISTENERS
         this.setupEventListeners();
@@ -101,7 +94,69 @@ class MemoryGame {
             this.startBackgroundMusic();
         }
         
-        console.log('🎵 Música carregada e pronta');
+        console.log('🎵 Sistema de áudio carregado - Música NUNCA para!');
+    }
+
+    // ✅ NOVO: SISTEMA DE ÁUDIO MELHORADO
+    async initAudioSystem() {
+        try {
+            this.soundLoader.style.display = 'flex';
+            
+            // ✅ INICIAR CONTEXTO DE ÁUDIO PARA EFEITOS SONOROS
+            this.audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            
+            // ✅ CARREGAR MÚSICA DE FUNDO (elemento <audio> tradicional)
+            await this.loadBackgroundMusic();
+            
+            // ✅ CARREGAR SONS DE EFEITOS (usando AudioBuffer - NÃO INTERFERE NA MÚSICA)
+            await this.loadSoundEffects();
+            
+            console.log('✅ Todos os áudios carregados');
+            
+        } catch (error) {
+            console.warn('Erro ao carregar sistema de áudio:', error);
+        } finally {
+            this.soundLoader.style.display = 'none';
+        }
+    }
+
+    // ✅ CARREGAR MÚSICA DE FUNDO
+    async loadBackgroundMusic() {
+        return new Promise((resolve) => {
+            const music = this.sounds.background;
+            if (music.readyState >= 3) {
+                resolve();
+            } else {
+                music.addEventListener('canplaythrough', () => resolve(), { once: true });
+                music.load();
+            }
+            setTimeout(resolve, 3000);
+        });
+    }
+
+    // ✅ NOVO: CARREGAR SONS DE EFEITOS USANDO AUDIOBUFFER
+    async loadSoundEffects() {
+        const soundFiles = {
+            flip: 'sounds/flip.mp3',
+            match: 'sounds/match.mp3', 
+            mismatch: 'sounds/mismatch.mp3',
+            victory: 'sounds/victory.mp3',
+            click: 'sounds/click.mp3'
+        };
+
+        const loadPromises = Object.entries(soundFiles).map(async ([name, url]) => {
+            try {
+                const response = await fetch(url);
+                const arrayBuffer = await response.arrayBuffer();
+                const audioBuffer = await this.audioContext.decodeAudioData(arrayBuffer);
+                this.soundBuffers[name] = audioBuffer;
+                console.log(`✅ Som ${name} carregado via AudioBuffer`);
+            } catch (error) {
+                console.warn(`❌ Erro ao carregar som ${name}:`, error);
+            }
+        });
+
+        await Promise.all(loadPromises);
     }
 
     // ✅ CARREGAR CONFIGURAÇÕES SALVAS
@@ -121,73 +176,6 @@ class MemoryGame {
     saveSettings() {
         localStorage.setItem('memoryGameMusic', JSON.stringify(this.musicEnabled));
         localStorage.setItem('memoryGameSound', JSON.stringify(this.soundEnabled));
-    }
-
-    // ✅ SISTEMA DE ÁUDIO MOBILE
-    enableMobileAudio() {
-        if (this.audioContext && this.audioContext.state === 'running') {
-            console.log('✅ Contexto de áudio já está ativo');
-            return;
-        }
-        
-        const unlockAudio = () => {
-            if (this.audioContext) {
-                if (this.audioContext.state === 'suspended') {
-                    this.audioContext.resume().then(() => {
-                        console.log('✅ Contexto de áudio retomado no mobile');
-                    }).catch(error => {
-                        console.warn('❌ Erro ao retomar contexto:', error);
-                    });
-                }
-                return;
-            }
-            
-            try {
-                const context = new (window.AudioContext || window.webkitAudioContext)();
-                this.audioContext = context;
-                console.log('🎵 Contexto de áudio criado');
-                
-                if (context.state === 'suspended') {
-                    context.resume().then(() => {
-                        console.log('✅ Contexto de áudio ativado no mobile');
-                    });
-                }
-                
-            } catch (error) {
-                console.warn('❌ Erro ao criar contexto de áudio:', error);
-            }
-        };
-        
-        document.addEventListener('touchstart', unlockAudio, { passive: true });
-        document.addEventListener('touchend', unlockAudio, { passive: true });
-        document.addEventListener('click', unlockAudio);
-    }
-
-    // ✅ PRÉ-CARREGAR SONS
-    async preloadSounds() {
-        try {
-            this.soundLoader.style.display = 'flex';
-            
-            const loadPromises = Object.values(this.sounds).map(sound => {
-                return new Promise((resolve) => {
-                    if (sound.readyState >= 3) {
-                        resolve();
-                    } else {
-                        sound.addEventListener('canplaythrough', () => resolve(), { once: true });
-                        sound.load();
-                    }
-                    setTimeout(resolve, 3000);
-                });
-            });
-
-            await Promise.all(loadPromises);
-            console.log('✅ Todos os sons carregados');
-            
-        } catch (error) {
-            console.warn('Erro ao carregar sons:', error);
-        } finally {
-            this.soundLoader.style.display = 'none';
-        }
     }
 
     // ✅ CONFIGURAR EVENT LISTENERS
@@ -302,26 +290,37 @@ class MemoryGame {
         }
     }
 
-    // ✅ REPRODUZIR SOM
+    // ✅ REPRODUZIR SOM DE EFEITO (USANDO AUDIOBUFFER - NÃO INTERFERE NA MÚSICA)
     playSound(type) {
-        if (!this.soundEnabled) return;
+        if (!this.soundEnabled || !this.audioContext) return;
 
-        const sound = this.sounds[type];
-        if (sound && sound.readyState >= 2) {
-            sound.currentTime = 0;
-            sound.volume = type === 'background' ? 0.3 : 1.0;
-            
-            const playPromise = sound.play();
-            
-            if (playPromise !== undefined) {
-                playPromise.catch(error => {
-                    console.warn(`❌ Erro ao reproduzir som ${type}:`, error);
-                });
+        const buffer = this.soundBuffers[type];
+        if (buffer) {
+            try {
+                const source = this.audioContext.createBufferSource();
+                const gainNode = this.audioContext.createGain();
+                
+                source.buffer = buffer;
+                source.connect(gainNode);
+                gainNode.connect(this.audioContext.destination);
+                
+                // Configurar volume
+                gainNode.gain.value = 1.0;
+                
+                // Reproduzir - NÃO INTERFERE NA MÚSICA DE FUNDO
+                source.start(0);
+                
+                console.log(`🔊 Som ${type} reproduzido simultaneamente com música`);
+                
+            } catch (error) {
+                console.warn(`❌ Erro ao reproduzir som ${type}:`, error);
             }
+        } else {
+            console.warn(`❌ Buffer de som ${type} não encontrado`);
         }
     }
 
-    // ✅ INICIAR MÚSICA DE FUNDO
+    // ✅ INICIAR MÚSICA DE FUNDO (ELEMENTO <AUDIO> TRADICIONAL)
     startBackgroundMusic() {
         if (!this.musicEnabled) return;
         
@@ -336,12 +335,11 @@ class MemoryGame {
                 
                 if (playPromise !== undefined) {
                     playPromise.then(() => {
-                        console.log('🎶 Música de fundo iniciada');
+                        console.log('🎶 Música de fundo iniciada - NUNCA para!');
                         this.musicStarted = true;
                         this.updateMusicButton();
                     }).catch(error => {
                         console.warn('❌ Erro ao iniciar música de fundo:', error);
-                        // Tentar novamente na próxima interação
                         this.musicStarted = false;
                     });
                 }
@@ -352,32 +350,19 @@ class MemoryGame {
         }
     }
 
-    // ✅ PARAR MÚSICA DE FUNDO
+    // ✅ PARAR MÚSICA DE FUNDO (APENAS QUANDO USUÁRIO DESATIVA)
     stopBackgroundMusic() {
         const music = this.sounds.background;
         if (music) {
             music.pause();
             music.currentTime = 0;
-            console.log('🎶 Música de fundo parada');
+            console.log('🎶 Música de fundo parada pelo usuário');
             this.updateMusicButton();
         }
     }
 
-    // ✅ PAUSAR MÚSICA DE FUNDO TEMPORARIAMENTE
-    pauseBackgroundMusic() {
-        const music = this.sounds.background;
-        if (music && !music.paused) {
-            music.volume = 0.1;
-        }
-    }
-
-    // ✅ RETOMAR MÚSICA DE FUNDO
-    resumeBackgroundMusic() {
-        const music = this.sounds.background;
-        if (music && !music.paused) {
-            music.volume = 0.3;
-        }
-    }
+    // ❌ REMOVIDO: Não precisamos mais pausar a música para efeitos
+    // As funções pauseBackgroundMusic() e resumeBackgroundMusic() foram REMOVIDAS
 
     // ✅ ATUALIZAR A FUNÇÃO showDifficultySelection PARA LIMPAR OVERLAY
     showDifficultySelection() {
@@ -568,12 +553,11 @@ class MemoryGame {
             return;
         }
 
-        this.playSound('flip');
+        this.playSound('flip'); // ✅ AGORA NÃO INTERFERE NA MÚSICA
         this.vibrate(50);
 
-        // ✅ PAUSAR MÚSICA TEMPORARIAMENTE PARA DAR DESTAQUE AO SOM DA CARTA
-        this.pauseBackgroundMusic();
-        setTimeout(() => this.resumeBackgroundMusic(), 300);
+        // ❌ REMOVIDO: Não pausamos mais a música de fundo
+        // A música continua tocando normalmente
 
         this.flipCardWithAnimation(card, true);
         this.flippedCards.push(card);
@@ -638,12 +622,11 @@ class MemoryGame {
     }
 
     handleMatch(card1, card2) {
-        this.playSound('match');
+        this.playSound('match'); // ✅ AGORA NÃO INTERFERE NA MÚSICA
         this.vibrate([100, 50, 100]);
 
-        // ✅ PAUSAR MÚSICA TEMPORARIAMENTE PARA DAR DESTAQUE AO SOM DO MATCH
-        this.pauseBackgroundMusic();
-        setTimeout(() => this.resumeBackgroundMusic(), 500);
+        // ❌ REMOVIDO: Não pausamos mais a música de fundo
+        // A música continua tocando normalmente
 
         card1.isMatched = true;
         card2.isMatched = true;
@@ -701,12 +684,11 @@ class MemoryGame {
     }
 
     handleMismatch(card1, card2) {
-        this.playSound('mismatch');
+        this.playSound('mismatch'); // ✅ AGORA NÃO INTERFERE NA MÚSICA
         this.vibrate(200);
 
-        // ✅ PAUSAR MÚSICA TEMPORARIAMENTE PARA DAR DESTAQUE AO SOM DO ERRO
-        this.pauseBackgroundMusic();
-        setTimeout(() => this.resumeBackgroundMusic(), 500);
+        // ❌ REMOVIDO: Não pausamos mais a música de fundo
+        // A música continua tocando normalmente
 
         card1.element.classList.add('mismatch-shake');
         card2.element.classList.add('mismatch-shake');
@@ -1226,16 +1208,11 @@ class MemoryGame {
         this.stopTimer();
         this.gameStarted = false;
         
-        this.playSound('victory');
+        this.playSound('victory'); // ✅ AGORA NÃO INTERFERE NA MÚSICA
         this.vibrate([100, 50, 100, 50, 100]);
 
-        // ✅ PARAR MÚSICA TEMPORARIAMENTE PARA VITÓRIA
-        this.pauseBackgroundMusic();
-        setTimeout(() => {
-            if (this.musicEnabled && this.musicStarted) {
-                this.resumeBackgroundMusic();
-            }
-        }, 2000);
+        // ❌ REMOVIDO: Não pausamos mais a música de fundo
+        // A música continua tocando normalmente durante a vitória
 
         this.createConfettiEffect();
         
