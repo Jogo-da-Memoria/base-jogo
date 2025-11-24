@@ -24,6 +24,9 @@
             <button id="soundToggle" class="btn-icon" aria-label="Alternar som" title="Som">
               🔊
             </button>
+            <button id="musicToggle" class="btn-icon" aria-label="Ativar/desativar música de fundo">
+              🎵
+            </button>
             <div class="score-display-mini">
               <span class="score-label">Pontuação</span>
               <span class="score-value" id="currentScore">0</span>
@@ -153,6 +156,9 @@
   </audio>
   <audio id="clickSound" preload="auto">
     <source src="sounds/click.mp3" type="audio/mpeg">
+  </audio>
+  <audio id="musica_fundo" preload="auto" loop>
+    <source src="sounds/musica_fundo.mp3" type="audio/mpeg">
   </audio>
 
   <script src="game.js"></script>

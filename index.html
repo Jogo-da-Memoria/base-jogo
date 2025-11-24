@@ -44,7 +44,7 @@
           </div>
           <div class="feature">
             <span>🏆</span>
-            <span>Ranking global</span>
+            <span>Ranking global online</span>
           </div>
           <div class="feature">
             <span>📊</span>
@@ -121,9 +121,16 @@
     </section>
   </main>
 
-  <!-- JAVASCRIPT DA TELA INICIAL -->
+  <!-- JAVASCRIPT DA TELA INICIAL - ATUALIZADO -->
   <script>
-    // JavaScript para tela inicial - ATUALIZADO COM LOGIN E RANKING
+    // ✅ CONFIGURAÇÃO DO SUPABASE (MESMA DO GAME.JS)
+    const supabaseConfig = {
+      url: 'https://nrvbpipvxyyuwjrjccjk.supabase.co',
+      key: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhbmFzZSIsInJlZiI6Im5ydmJwaXB2eHl5dXdqcmpjY2prIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjM5NDgxMTQsImV4cCI6MjA3OTUyNDExNH0.COITQUYgEpqbUYa_FmNx4MrxsgIb9mdAu-qgWTu5HWY',
+      table: 'global_ranking'
+    };
+
+    // Elementos DOM
     const loginOverlay = document.getElementById('loginOverlay');
     const loginForm = document.getElementById('loginForm');
     const playerNameInput = document.getElementById('playerName');
@@ -181,21 +188,30 @@
           </div>
         `;
       }
+
+      // ✅ CONFIGURAR BOTÃO INICIAR PARA INICIAR MÚSICA
+      if (startBtn) {
+        startBtn.addEventListener('click', startGameWithMusic);
+      }
     });
 
-    // Botão "Iniciar": redireciona para o tabuleiro
-    startBtn.addEventListener('click', () => {
+    // ✅ FUNÇÃO PARA INICIAR JOGO COM MÚSICA
+    function startGameWithMusic() {
+      // Salvar flag para iniciar música no game.html
+      localStorage.setItem('memoryGameStartMusic', 'true');
+      
+      // Redirecionar para o jogo
       window.location.href = 'game.html';
-    });
+    }
 
     // Botão "Meu Histórico": mostra histórico individual
     historyBtn.addEventListener('click', () => {
       showIndividualHistory();
     });
 
-    // Botão "Ranking Global": mostra ranking global
-    rankingBtn.addEventListener('click', () => {
-      showGlobalRanking();
+    // ✅ BOTÃO "RANKING GLOBAL": AGORA USA SUPABASE ONLINE
+    rankingBtn.addEventListener('click', async () => {
+      await showGlobalRanking();
     });
 
     // Botão "Como Jogar": rola suavemente até as instruções
@@ -246,21 +262,29 @@
         document.body.insertAdjacentHTML('beforeend', historyHTML);
       } catch (error) {
         console.error('Erro ao carregar histórico:', error);
-        alert('Erro ao carregar histórico de partidas.');
+        showNotification('Erro ao carregar histórico de partidas.', 'error');
       }
     }
 
-    // ✅ FUNÇÃO PARA MOSTRAR RANKING GLOBAL
-    function showGlobalRanking() {
+    // ✅ FUNÇÃO ATUALIZADA PARA MOSTRAR RANKING GLOBAL (SUPABASE)
+    async function showGlobalRanking() {
       try {
-        const globalRanking = JSON.parse(localStorage.getItem('memoryGameGlobalRanking') || '[]');
+        showNotification('🔄 Carregando ranking global...', 'info');
+        
+        const globalRanking = await fetchGlobalRanking();
         const currentPlayer = localStorage.getItem('memoryGamePlayer');
+        
+        closeNotification();
         
         const rankingHTML = `
           <div class="ranking-overlay">
             <div class="ranking-card">
               <div class="ranking-header">
                 <h2>🏆 Ranking Global</h2>
+                <div class="ranking-status">
+                  <span class="online-badge">🌐 SUPABASE</span>
+                  <span class="players-count">${globalRanking.length} jogadores</span>
+                </div>
                 <button class="btn-close" onclick="closeRanking()" aria-label="Fechar ranking">
                   ×
                 </button>
@@ -268,7 +292,7 @@
               
               <div class="ranking-content">
                 ${globalRanking.length === 0 ? 
-                  '<div class="empty-ranking">🎯 Nenhuma pontuação no ranking ainda.<br><br>Seja o primeiro a entrar no ranking!</div>' : 
+                  '<div class="empty-ranking">🎯 Nenhuma pontuação no ranking ainda.<br><br>Seja o primeiro a marcar pontos!</div>' : 
                   generateRankingList(globalRanking, currentPlayer)
                 }
               </div>
@@ -292,16 +316,122 @@
                 <button onclick="closeRanking()" class="btn btn-ghost">
                   Fechar
                 </button>
+                <button onclick="refreshRanking()" class="btn btn-secondary">
+                  🔄 Atualizar
+                </button>
               </div>
             </div>
           </div>
         `;
         
+        closeRanking();
         document.body.insertAdjacentHTML('beforeend', rankingHTML);
+        
       } catch (error) {
         console.error('Erro ao carregar ranking:', error);
-        alert('Erro ao carregar ranking global.');
+        showNotification('❌ Erro ao carregar ranking global', 'error');
+        showEmptyRanking(); // Fallback
       }
+    }
+
+    // ✅ FUNÇÃO PARA BUSCAR RANKING DO SUPABASE
+    async function fetchGlobalRanking() {
+      try {
+        console.log('🌐 Buscando ranking do Supabase...');
+        
+        const response = await fetch(
+          `${supabaseConfig.url}/rest/v1/${supabaseConfig.table}?select=*&order=score.desc&limit=100`,
+          {
+            method: 'GET',
+            headers: {
+              'apikey': supabaseConfig.key,
+              'Authorization': `Bearer ${supabaseConfig.key}`,
+              'Content-Type': 'application/json'
+            }
+          }
+        );
+
+        if (!response.ok) {
+          throw new Error(`Erro HTTP! status: ${response.status}`);
+        }
+        
+        const ranking = await response.json();
+        console.log('✅ Ranking carregado:', ranking.length, 'jogadores');
+        
+        // Converter formato do Supabase
+        const formattedRanking = ranking.map(player => ({
+          playerName: player.player_name || 'Jogador',
+          score: player.score || 0,
+          moves: player.moves || 0,
+          time: player.game_time || '00:00',
+          difficulty: player.difficulty || 'easy',
+          efficiency: player.efficiency || 0,
+          date: player.created_at || new Date().toISOString()
+        })).filter(player => player.score > 0);
+        
+        return formattedRanking;
+        
+      } catch (error) {
+        console.warn('❌ Erro ao buscar ranking online:', error);
+        // Fallback para localStorage
+        return getLocalRankingFallback();
+      }
+    }
+
+    // ✅ FALLBACK LOCAL
+    function getLocalRankingFallback() {
+      try {
+        return JSON.parse(localStorage.getItem('memoryGameGlobalRanking') || '[]');
+      } catch {
+        return [];
+      }
+    }
+
+    // ✅ FUNÇÃO PARA RANKING VAZIO
+    function showEmptyRanking() {
+      const emptyHTML = `
+        <div class="ranking-overlay">
+          <div class="ranking-card">
+            <div class="ranking-header">
+              <h2>🏆 Ranking Global</h2>
+              <div class="ranking-status">
+                <span class="online-badge">🌐 SUPABASE</span>
+                <span class="players-count">0 jogadores</span>
+              </div>
+              <button class="btn-close" onclick="closeRanking()" aria-label="Fechar ranking">
+                ×
+              </button>
+            </div>
+            
+            <div class="ranking-content">
+              <div class="empty-ranking">
+                🎯 Nenhuma pontuação no ranking ainda.<br><br>
+                Seja o primeiro a marcar pontos!
+              </div>
+            </div>
+            
+            <div class="ranking-actions">
+              <button onclick="closeRanking()" class="btn btn-ghost">
+                Fechar
+              </button>
+              <button onclick="refreshRanking()" class="btn btn-secondary">
+                🔄 Atualizar
+              </button>
+            </div>
+          </div>
+        </div>
+      `;
+      
+      closeRanking();
+      document.body.insertAdjacentHTML('beforeend', emptyHTML);
+    }
+
+    // ✅ FUNÇÃO PARA ATUALIZAR RANKING
+    async function refreshRanking() {
+      closeRanking();
+      setTimeout(async () => {
+        await showGlobalRanking();
+      }, 300);
     }
 
     // ✅ FUNÇÕES AUXILIARES
@@ -349,11 +479,11 @@
                   ${player.playerName === currentPlayer ? '<span class="you-badge">Você</span>' : ''}
                 </div>
                 <div class="player-stats">
-                  <span>${player.score} pontos</span>
+                  <span>${player.moves} jogadas</span>
+                  <span>•</span>
+                  <span>${player.time}</span>
                   <span>•</span>
                   <span>${getDifficultyName(player.difficulty)}</span>
-                  <span>•</span>
-                  <span>${player.moves} jogadas</span>
                 </div>
               </div>
               <div class="ranking-score">
@@ -414,6 +544,11 @@
       if (rankingOverlay) rankingOverlay.remove();
     }
 
+    function closeNotification() {
+      const notification = document.querySelector('.notification');
+      if (notification) notification.remove();
+    }
+
     function clearIndividualHistory() {
       if (confirm('Tem certeza que deseja limpar seu histórico individual?\n\nEsta ação não pode ser desfeita.')) {
         try {
@@ -423,10 +558,10 @@
           
           localStorage.setItem('memoryGameHistory', JSON.stringify(filteredHistory));
           closeHistory();
-          showNotification('Seu histórico foi limpo!');
+          showNotification('Seu histórico foi limpo!', 'success');
           setTimeout(showIndividualHistory, 500);
         } catch (error) {
-          alert('Erro ao limpar histórico.');
+          showNotification('Erro ao limpar histórico.', 'error');
         }
       }
     }
@@ -489,6 +624,23 @@
         font-size: 0.9rem;
         margin-top: 8px;
         display: inline-block;
+      }
+
+      .online-badge {
+        background: var(--success);
+        color: white;
+        padding: 4px 8px;
+        border-radius: 12px;
+        font-size: 0.7rem;
+        font-weight: 600;
+      }
+
+      .players-count {
+        font-size: 0.8rem;
+        color: var(--muted);
+        background: var(--glass);
+        padding: 4px 8px;
+        border-radius: 8px;
       }
     `;
     document.head.appendChild(style);

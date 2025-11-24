@@ -1,4 +1,4 @@
-// game.js - Sistema Completo com Ranking Global e Login
+// game.js - Sistema Completo com Ranking Global, Login e Música de Fundo
 class MemoryGame {
     constructor() {
         this.cards = [];
@@ -14,9 +14,12 @@ class MemoryGame {
         this.currentDifficulty = null;
         this.multiplier = 1;
         this.soundEnabled = true;
+        this.musicEnabled = true;
+        this.musicStarted = false;
         this.playerName = '';
+        this.audioContext = null;
 
-        // ✅ CONFIGURAÇÃO DO SUPABASE - USE SUAS CREDENCIAIS
+        // ✅ CONFIGURAÇÃO DO SUPABASE
         this.supabaseConfig = {
             url: 'https://nrvbpipvxyyuwjrjccjk.supabase.co',
             key: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5ydmJwaXB2eHl5dXdqcmpjY2prIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjM5NDgxMTQsImV4cCI6MjA3OTUyNDExNH0.COITQUYgEpqbUYa_FmNx4MrxsgIb9mdAu-qgWTu5HWY',
@@ -42,6 +45,7 @@ class MemoryGame {
         this.changeDifficultyBtn = document.getElementById('changeDifficultyBtn');
         this.backBtn = document.getElementById('backBtn');
         this.soundToggle = document.getElementById('soundToggle');
+        this.musicToggle = document.getElementById('musicToggle');
         this.soundLoader = document.getElementById('soundLoader');
         this.visualEffects = document.getElementById('visualEffects');
 
@@ -51,7 +55,8 @@ class MemoryGame {
             match: document.getElementById('matchSound'),
             mismatch: document.getElementById('mismatchSound'),
             victory: document.getElementById('victorySound'),
-            click: document.getElementById('clickSound')
+            click: document.getElementById('clickSound'),
+            background: document.getElementById('musica_fundo')
         };
 
         this.init(); 
@@ -65,58 +70,97 @@ class MemoryGame {
             return;
         }
 
+        // ✅ VERIFICAR SE DEVE INICIAR MÚSICA (vindo do index.html)
+        const shouldStartMusic = localStorage.getItem('memoryGameStartMusic');
+        if (shouldStartMusic === 'true') {
+            this.musicStarted = false; // Forçar início da música
+            this.musicEnabled = true; // Garantir que música está ativada
+            localStorage.removeItem('memoryGameStartMusic'); // Limpar flag
+            console.log('🎵 Iniciando música vindo do index.html');
+        }
+
+        // ✅ CARREGAR CONFIGURAÇÕES SALVAS
+        this.loadSettings();
+
         // ✅ ATIVAR ÁUDIO PARA DISPOSITIVOS MÓVEIS
         this.enableMobileAudio();
         
+        // ✅ PRÉ-CARREGAR SONS COM MELHOR TRATAMENTO
         await this.preloadSounds();
+        
+        // ✅ CONFIGURAR EVENT LISTENERS
         this.setupEventListeners();
         this.showDifficultySelection();
+        
+        // ✅ ATUALIZAR BOTÕES DE SOM E MÚSICA
+        this.updateSoundButton();
+        this.updateMusicButton();
+        
+        // ✅ INICIAR MÚSICA SE CONFIGURADO
+        if (shouldStartMusic === 'true') {
+            this.startBackgroundMusic();
+        }
+        
+        console.log('🎵 Música carregada e pronta');
     }
 
-    // ✅ FUNÇÃO PARA ATIVAR ÁUDIO EM DISPOSITIVOS MÓVEIS (iOS/Android)
+    // ✅ CARREGAR CONFIGURAÇÕES SALVAS
+    loadSettings() {
+        const savedMusic = localStorage.getItem('memoryGameMusic');
+        if (savedMusic !== null) {
+            this.musicEnabled = JSON.parse(savedMusic);
+        }
+        
+        const savedSound = localStorage.getItem('memoryGameSound');
+        if (savedSound !== null) {
+            this.soundEnabled = JSON.parse(savedSound);
+        }
+    }
+
+    // ✅ SALVAR CONFIGURAÇÕES
+    saveSettings() {
+        localStorage.setItem('memoryGameMusic', JSON.stringify(this.musicEnabled));
+        localStorage.setItem('memoryGameSound', JSON.stringify(this.soundEnabled));
+    }
+
+    // ✅ SISTEMA DE ÁUDIO MOBILE
     enableMobileAudio() {
-        // Criar contexto de áudio no touch (requerido no iOS)
+        if (this.audioContext && this.audioContext.state === 'running') {
+            console.log('✅ Contexto de áudio já está ativo');
+            return;
+        }
+        
         const unlockAudio = () => {
-            // Verificar se já existe um contexto de áudio ativo
-            if (this.audioContext) return;
+            if (this.audioContext) {
+                if (this.audioContext.state === 'suspended') {
+                    this.audioContext.resume().then(() => {
+                        console.log('✅ Contexto de áudio retomado no mobile');
+                    }).catch(error => {
+                        console.warn('❌ Erro ao retomar contexto:', error);
+                    });
+                }
+                return;
+            }
             
             try {
                 const context = new (window.AudioContext || window.webkitAudioContext)();
                 this.audioContext = context;
+                console.log('🎵 Contexto de áudio criado');
                 
-                // Criar um buffer silencioso e reproduzir
-                const buffer = context.createBuffer(1, 1, 22050);
-                const source = context.createBufferSource();
-                source.buffer = buffer;
-                source.connect(context.destination);
-                
-                // Verificar se o contexto está suspenso (comum em iOS)
                 if (context.state === 'suspended') {
                     context.resume().then(() => {
                         console.log('✅ Contexto de áudio ativado no mobile');
-                        source.start(0);
                     });
-                } else {
-                    source.start(0);
                 }
                 
-                // Remover event listeners após primeiro touch
-                document.removeEventListener('touchstart', unlockAudio);
-                document.removeEventListener('touchend', unlockAudio);
-                document.removeEventListener('click', unlockAudio);
-                
             } catch (error) {
-                console.warn('❌ Erro ao ativar áudio mobile:', error);
+                console.warn('❌ Erro ao criar contexto de áudio:', error);
             }
         };
         
-        // Adicionar listeners para diferentes eventos de interação
-        document.addEventListener('touchstart', unlockAudio, { once: true, passive: true });
-        document.addEventListener('touchend', unlockAudio, { once: true, passive: true });
-        document.addEventListener('click', unlockAudio, { once: true });
-        
-        // Também tentar ativar no carregamento da página se já houver interação
-        setTimeout(unlockAudio, 1000);
+        document.addEventListener('touchstart', unlockAudio, { passive: true });
+        document.addEventListener('touchend', unlockAudio, { passive: true });
+        document.addEventListener('click', unlockAudio);
     }
 
     // ✅ PRÉ-CARREGAR SONS
@@ -126,42 +170,43 @@ class MemoryGame {
             
             const loadPromises = Object.values(this.sounds).map(sound => {
                 return new Promise((resolve) => {
-                    sound.addEventListener('canplaythrough', () => resolve(), { once: true });
-                    sound.load();
-                    setTimeout(resolve, 2000);
+                    if (sound.readyState >= 3) {
+                        resolve();
+                    } else {
+                        sound.addEventListener('canplaythrough', () => resolve(), { once: true });
+                        sound.load();
+                    }
+                    setTimeout(resolve, 3000);
                 });
             });
 
             await Promise.all(loadPromises);
-            this.setupFallbackSounds();
+            console.log('✅ Todos os sons carregados');
             
         } catch (error) {
             console.warn('Erro ao carregar sons:', error);
-            this.setupFallbackSounds();
         } finally {
             this.soundLoader.style.display = 'none';
         }
     }
 
-    setupFallbackSounds() {
-        if (!this.sounds.flip.src) {
-            console.log('Usando sons alternativos...');
-        }
-    }
-
+    // ✅ CONFIGURAR EVENT LISTENERS
     setupEventListeners() {
         this.backBtn.addEventListener('click', () => {
             this.playSound('click');
+            this.stopBackgroundMusic();
             setTimeout(() => window.location.href = 'index.html', 200);
         });
 
         this.restartBtn.addEventListener('click', () => {
             this.playSound('click');
+            this.startBackgroundMusicOnInteraction();
             this.restartGame();
         });
 
         this.changeDifficultyBtn.addEventListener('click', () => {
             this.playSound('click');
+            this.startBackgroundMusicOnInteraction();
             this.showDifficultySelection();
         });
 
@@ -169,11 +214,37 @@ class MemoryGame {
             this.soundEnabled = !this.soundEnabled;
             this.updateSoundButton();
             this.playSound('click');
+            this.startBackgroundMusicOnInteraction();
+            this.saveSettings();
         });
 
+        // ✅ BOTÃO DE MÚSICA
+        if (this.musicToggle) {
+            this.musicToggle.addEventListener('click', () => {
+                this.playSound('click');
+                this.startBackgroundMusicOnInteraction();
+                
+                if (this.musicEnabled) {
+                    // Se a música está ativada, vamos desativar
+                    this.musicEnabled = false;
+                    this.stopBackgroundMusic();
+                } else {
+                    // Se a música está desativada, vamos ativar
+                    this.musicEnabled = true;
+                    this.startBackgroundMusic();
+                }
+                
+                this.updateMusicButton();
+                this.saveSettings();
+            });
+        }
+
+        // ✅ ADICIONAR INICIADOR DE MÚSICA EM TODOS OS BOTÕES DE INTERAÇÃO
         document.querySelectorAll('.difficulty-option').forEach(option => {
             option.addEventListener('click', (e) => {
                 this.playSound('click');
+                this.startBackgroundMusicOnInteraction();
+                
                 document.querySelectorAll('.difficulty-option').forEach(opt => {
                     opt.classList.remove('selected');
                 });
@@ -185,7 +256,6 @@ class MemoryGame {
 
         this.setupHapticFeedback();
         
-        // ✅ ADICIONAR EVENT LISTENER PARA FECHAR HISTÓRICO COM ESC
         document.addEventListener('keydown', (e) => {
             if (e.key === 'Escape') {
                 this.closeHistory();
@@ -194,10 +264,34 @@ class MemoryGame {
         });
     }
 
+    // ✅ NOVA FUNÇÃO: INICIAR MÚSICA NA PRIMEIRA INTERAÇÃO
+    startBackgroundMusicOnInteraction() {
+        if (this.musicEnabled && !this.musicStarted) {
+            console.log('🎵 Primeira interação - iniciando música de fundo');
+            this.musicStarted = true;
+            this.startBackgroundMusic();
+        }
+    }
+
     updateSoundButton() {
         this.soundToggle.textContent = this.soundEnabled ? '🔊' : '🔇';
         this.soundToggle.setAttribute('aria-label', 
             this.soundEnabled ? 'Desativar som' : 'Ativar som');
+    }
+
+    // ✅ ATUALIZAR BOTÃO DE MÚSICA
+    updateMusicButton() {
+        if (this.musicToggle) {
+            if (this.musicEnabled) {
+                this.musicToggle.textContent = '🎵';
+                this.musicToggle.style.opacity = '1';
+                this.musicToggle.setAttribute('aria-label', 'Desativar música de fundo');
+            } else {
+                this.musicToggle.textContent = '🎵';
+                this.musicToggle.style.opacity = '0.5';
+                this.musicToggle.setAttribute('aria-label', 'Ativar música de fundo');
+            }
+        }
     }
 
     setupHapticFeedback() {
@@ -208,16 +302,80 @@ class MemoryGame {
         }
     }
 
-    // ✅ SISTEMA DE SONS
+    // ✅ REPRODUZIR SOM
     playSound(type) {
         if (!this.soundEnabled) return;
 
         const sound = this.sounds[type];
         if (sound && sound.readyState >= 2) {
             sound.currentTime = 0;
-            sound.play().catch(e => {
-                console.warn(`Erro ao reproduzir som ${type}:`, e);
-            });
+            sound.volume = type === 'background' ? 0.3 : 1.0;
+            
+            const playPromise = sound.play();
+            
+            if (playPromise !== undefined) {
+                playPromise.catch(error => {
+                    console.warn(`❌ Erro ao reproduzir som ${type}:`, error);
+                });
+            }
+        }
+    }
+
+    // ✅ INICIAR MÚSICA DE FUNDO
+    startBackgroundMusic() {
+        if (!this.musicEnabled) return;
+        
+        const music = this.sounds.background;
+        if (music && music.readyState >= 2) {
+            try {
+                music.volume = 0.3;
+                music.loop = true;
+                music.currentTime = 0;
+                
+                const playPromise = music.play();
+                
+                if (playPromise !== undefined) {
+                    playPromise.then(() => {
+                        console.log('🎶 Música de fundo iniciada');
+                        this.musicStarted = true;
+                        this.updateMusicButton();
+                    }).catch(error => {
+                        console.warn('❌ Erro ao iniciar música de fundo:', error);
+                        // Tentar novamente na próxima interação
+                        this.musicStarted = false;
+                    });
+                }
+            } catch (error) {
+                console.warn('❌ Erro ao configurar música de fundo:', error);
+                this.musicStarted = false;
+            }
+        }
+    }
+
+    // ✅ PARAR MÚSICA DE FUNDO
+    stopBackgroundMusic() {
+        const music = this.sounds.background;
+        if (music) {
+            music.pause();
+            music.currentTime = 0;
+            console.log('🎶 Música de fundo parada');
+            this.updateMusicButton();
+        }
+    }
+
+    // ✅ PAUSAR MÚSICA DE FUNDO TEMPORARIAMENTE
+    pauseBackgroundMusic() {
+        const music = this.sounds.background;
+        if (music && !music.paused) {
+            music.volume = 0.1;
+        }
+    }
+
+    // ✅ RETOMAR MÚSICA DE FUNDO
+    resumeBackgroundMusic() {
+        const music = this.sounds.background;
+        if (music && !music.paused) {
+            music.volume = 0.3;
         }
     }
 
@@ -253,9 +411,17 @@ class MemoryGame {
         // Parar timer se estiver rodando
         this.stopTimer();
         this.gameStarted = false;
+
+        // ✅ MANTER MÚSICA RODANDO SE JÁ ESTIVER INICIADA
+        if (this.musicEnabled && this.musicStarted) {
+            this.startBackgroundMusic();
+        }
     }
 
     startGame(difficulty) {
+        // ✅ INICIAR MÚSICA SE AINDA NÃO COMEÇOU
+        this.startBackgroundMusicOnInteraction();
+        
         document.getElementById('difficultySection').style.display = 'none';
         document.getElementById('gameSection').style.display = 'block';
         this.restartBtn.style.display = 'block';
@@ -268,6 +434,11 @@ class MemoryGame {
         this.updateDifficultyBadge(difficulty);
         this.setupBoard(config);
         this.startTimer();
+
+        // ✅ GARANTIR QUE A MÚSICA ESTEJA RODANDO NO JOGO
+        if (this.musicEnabled && this.musicStarted) {
+            this.startBackgroundMusic();
+        }
     }
 
     updateDifficultyBadge(difficulty) {
@@ -400,6 +571,10 @@ class MemoryGame {
         this.playSound('flip');
         this.vibrate(50);
 
+        // ✅ PAUSAR MÚSICA TEMPORARIAMENTE PARA DAR DESTAQUE AO SOM DA CARTA
+        this.pauseBackgroundMusic();
+        setTimeout(() => this.resumeBackgroundMusic(), 300);
+
         this.flipCardWithAnimation(card, true);
         this.flippedCards.push(card);
 
@@ -466,6 +641,10 @@ class MemoryGame {
         this.playSound('match');
         this.vibrate([100, 50, 100]);
 
+        // ✅ PAUSAR MÚSICA TEMPORARIAMENTE PARA DAR DESTAQUE AO SOM DO MATCH
+        this.pauseBackgroundMusic();
+        setTimeout(() => this.resumeBackgroundMusic(), 500);
+
         card1.isMatched = true;
         card2.isMatched = true;
         
@@ -524,6 +703,10 @@ class MemoryGame {
     handleMismatch(card1, card2) {
         this.playSound('mismatch');
         this.vibrate(200);
+
+        // ✅ PAUSAR MÚSICA TEMPORARIAMENTE PARA DAR DESTAQUE AO SOM DO ERRO
+        this.pauseBackgroundMusic();
+        setTimeout(() => this.resumeBackgroundMusic(), 500);
 
         card1.element.classList.add('mismatch-shake');
         card2.element.classList.add('mismatch-shake');
@@ -652,7 +835,122 @@ class MemoryGame {
         }
     }
 
-    // ✅ BUSCAR RANKING DO SUPABASE
+    // ✅ CORREÇÃO DO SISTEMA DE RANKING - FUNÇÃO ATUALIZADA
+    async showGlobalRanking(source = 'menu') {
+        try {
+            console.log(`🌐 Buscando ranking global (fonte: ${source})...`);
+            this.showNotification('🔄 Carregando ranking global...', 'info');
+            
+            const globalRanking = await this.fetchGlobalRanking();
+            const currentPlayer = this.playerName;
+            
+            this.closeNotification();
+            
+            // ✅ VERIFICAR SE HÁ DADOS VÁLIDOS
+            if (!globalRanking || globalRanking.length === 0) {
+                console.warn('❌ Ranking vazio ou indefinido');
+                this.showEmptyRanking();
+                return;
+            }
+            
+            console.log('✅ Ranking carregado com sucesso:', globalRanking.length, 'jogadores');
+            
+            const rankingHTML = `
+                <div class="ranking-overlay">
+                    <div class="ranking-card">
+                        <div class="ranking-header">
+                            <h2>🏆 Ranking Global</h2>
+                            <div class="ranking-status">
+                                <span class="online-badge">🌐 SUPABASE</span>
+                                <span class="players-count">${globalRanking.length} jogadores</span>
+                            </div>
+                            <button class="btn-close" onclick="window.memoryGame.closeRanking()" aria-label="Fechar ranking">
+                                ×
+                            </button>
+                        </div>
+                        
+                        <div class="ranking-content">
+                            ${this.generateRankingList(globalRanking, currentPlayer)}
+                        </div>
+                        
+                        <div class="ranking-stats">
+                            <div class="stat">
+                                <span class="stat-value">${globalRanking.length}</span>
+                                <span class="stat-label">Jogadores</span>
+                            </div>
+                            <div class="stat">
+                                <span class="stat-value">${globalRanking[0]?.score || 0}</span>
+                                <span class="stat-label">Recorde</span>
+                            </div>
+                            <div class="stat">
+                                <span class="stat-value">${this.getPlayerRank(globalRanking, currentPlayer) || '-'}</span>
+                                <span class="stat-label">Sua Posição</span>
+                            </div>
+                        </div>
+                        
+                        <div class="ranking-actions">
+                            <button onclick="window.memoryGame.closeRanking()" class="btn btn-ghost">
+                                Fechar
+                            </button>
+                            <button onclick="window.memoryGame.refreshRanking()" class="btn btn-secondary">
+                                🔄 Atualizar
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            // ✅ REMOVER OVERLAY EXISTENTE ANTES DE ADICIONAR NOVO
+            this.closeRanking();
+            document.body.insertAdjacentHTML('beforeend', rankingHTML);
+            
+        } catch (error) {
+            console.error('❌ Erro ao carregar ranking:', error);
+            this.showNotification('❌ Erro ao carregar ranking global', 'error');
+            this.showEmptyRanking(); // Fallback
+        }
+    }
+
+    // ✅ FUNÇÃO PARA RANKING VAZIO
+    showEmptyRanking() {
+        const emptyHTML = `
+            <div class="ranking-overlay">
+                <div class="ranking-card">
+                    <div class="ranking-header">
+                        <h2>🏆 Ranking Global</h2>
+                        <div class="ranking-status">
+                            <span class="online-badge">🌐 SUPABASE</span>
+                            <span class="players-count">0 jogadores</span>
+                        </div>
+                        <button class="btn-close" onclick="window.memoryGame.closeRanking()" aria-label="Fechar ranking">
+                            ×
+                        </button>
+                    </div>
+                    
+                    <div class="ranking-content">
+                        <div class="empty-ranking">
+                            🎯 Nenhuma pontuação no ranking ainda.<br><br>
+                            Seja o primeiro a marcar pontos!
+                        </div>
+                    </div>
+                    
+                    <div class="ranking-actions">
+                        <button onclick="window.memoryGame.closeRanking()" class="btn btn-ghost">
+                            Fechar
+                        </button>
+                        <button onclick="window.memoryGame.refreshRanking()" class="btn btn-secondary">
+                            🔄 Atualizar
+                        </button>
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        this.closeRanking();
+        document.body.insertAdjacentHTML('beforeend', emptyHTML);
+    }
+
+    // ✅ ATUALIZAR FUNÇÃO DE BUSCA DO RANKING
     async fetchGlobalRanking() {
         try {
             console.log('🌐 Buscando ranking do Supabase...');
@@ -676,17 +974,24 @@ class MemoryGame {
             const ranking = await response.json();
             console.log('✅ Ranking carregado:', ranking.length, 'jogadores');
             
+            // ✅ VERIFICAR E CONVERTER DADOS
+            if (!Array.isArray(ranking)) {
+                console.warn('❌ Ranking não é um array:', ranking);
+                return this.getLocalRankingFallback();
+            }
+            
             // Converter formato do Supabase para formato do jogo
             const formattedRanking = ranking.map(player => ({
-                playerName: player.player_name,
-                score: player.score,
-                moves: player.moves,
-                time: player.game_time,
-                difficulty: player.difficulty,
-                efficiency: player.efficiency,
-                date: player.created_at
-            }));
+                playerName: player.player_name || 'Jogador',
+                score: player.score || 0,
+                moves: player.moves || 0,
+                time: player.game_time || '00:00',
+                difficulty: player.difficulty || 'easy',
+                efficiency: player.efficiency || 0,
+                date: player.created_at || new Date().toISOString()
+            })).filter(player => player.score > 0); // ✅ FILTRAR JOGADORES VÁLIDOS
             
+            console.log('✅ Ranking formatado:', formattedRanking.length, 'jogadores válidos');
             return formattedRanking;
             
         } catch (error) {
@@ -924,6 +1229,14 @@ class MemoryGame {
         this.playSound('victory');
         this.vibrate([100, 50, 100, 50, 100]);
 
+        // ✅ PARAR MÚSICA TEMPORARIAMENTE PARA VITÓRIA
+        this.pauseBackgroundMusic();
+        setTimeout(() => {
+            if (this.musicEnabled && this.musicStarted) {
+                this.resumeBackgroundMusic();
+            }
+        }, 2000);
+
         this.createConfettiEffect();
         
         const finalScore = this.calculateFinalScore();
@@ -1064,7 +1377,7 @@ class MemoryGame {
                         this.showHistory();
                         break;
                     case 'ranking':
-                        this.showGlobalRanking();
+                        this.showGlobalRanking('victory');
                         break;
                     case 'difficulty':
                         this.showDifficultySelection();
@@ -1108,7 +1421,7 @@ class MemoryGame {
                             </button>` : 
                             ''
                         }
-                        <button onclick="window.memoryGame.showGlobalRanking()" class="btn btn-warning">
+                        <button onclick="window.memoryGame.showGlobalRanking('history')" class="btn btn-warning">
                             🏆 Ver Ranking Global
                         </button>
                         <button onclick="window.memoryGame.closeHistory()" class="btn btn-ghost">
@@ -1122,75 +1435,9 @@ class MemoryGame {
         document.body.insertAdjacentHTML('beforeend', historyHTML);
     }
 
-    // ✅ RANKING GLOBAL ATUALIZADO
-    async showGlobalRanking() {
-        try {
-            this.showNotification('🔄 Carregando ranking global...', 'info');
-            
-            const globalRanking = await this.fetchGlobalRanking();
-            const currentPlayer = this.playerName;
-            
-            this.closeNotification();
-            
-            const rankingHTML = `
-                <div class="ranking-overlay">
-                    <div class="ranking-card">
-                        <div class="ranking-header">
-                            <h2>🏆 Ranking Global</h2>
-                            <div class="ranking-status">
-                                <span class="online-badge">🌐 SUPABASE</span>
-                                <span class="players-count">${globalRanking.length} jogadores</span>
-                            </div>
-                            <button class="btn-close" onclick="window.memoryGame.closeRanking()" aria-label="Fechar ranking">
-                                ×
-                            </button>
-                        </div>
-                        
-                        <div class="ranking-content">
-                            ${globalRanking.length === 0 ? 
-                                '<div class="empty-ranking">🎯 Nenhuma pontuação no ranking ainda.<br><br>Seja o primeiro a marcar pontos!</div>' : 
-                                this.generateRankingList(globalRanking, currentPlayer)
-                            }
-                        </div>
-                        
-                        <div class="ranking-stats">
-                            <div class="stat">
-                                <span class="stat-value">${globalRanking.length}</span>
-                                <span class="stat-label">Jogadores</span>
-                            </div>
-                            <div class="stat">
-                                <span class="stat-value">${globalRanking[0]?.score || 0}</span>
-                                <span class="stat-label">Recorde</span>
-                            </div>
-                            <div class="stat">
-                                <span class="stat-value">${this.getPlayerRank(globalRanking, currentPlayer) || '-'}</span>
-                                <span class="stat-label">Sua Posição</span>
-                            </div>
-                        </div>
-                        
-                        <div class="ranking-actions">
-                            <button onclick="window.memoryGame.closeRanking()" class="btn btn-ghost">
-                                Fechar
-                            </button>
-                            <button onclick="window.memoryGame.refreshRanking()" class="btn btn-secondary">
-                                🔄 Atualizar
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            `;
-            
-            document.body.insertAdjacentHTML('beforeend', rankingHTML);
-            
-        } catch (error) {
-            console.error('Erro ao carregar ranking:', error);
-            this.showNotification('❌ Erro ao carregar ranking global', 'error');
-        }
-    }
-
     refreshRanking() {
         this.closeRanking();
-        setTimeout(() => this.showGlobalRanking(), 300);
+        setTimeout(() => this.showGlobalRanking('refresh'), 300);
     }
 
     closeNotification() {
@@ -1344,7 +1591,7 @@ class MemoryGame {
         return { text: 'CONTINUE PRATICANDO! 🌱', class: 'practice' };
     }
 
-    // ✅ RESTART GAME
+    // ✅ RESTART GAME ATUALIZADO COM MÚSICA
     restartGame() {
         const victoryOverlay = document.querySelector('.victory-overlay');
         if (victoryOverlay) {
@@ -1356,12 +1603,17 @@ class MemoryGame {
             historyOverlay.remove();
         }
 
-        const rankingOverlay = document.querySelector('.rankingOverlay');
+        const rankingOverlay = document.querySelector('.ranking-overlay');
         if (rankingOverlay) {
             rankingOverlay.remove();
         }
         
         this.stopTimer();
+        
+        // ✅ MANTER MÚSICA DE FUNDO AO REINICIAR
+        if (this.musicEnabled && this.musicStarted) {
+            this.startBackgroundMusic();
+        }
         
         if (this.currentDifficulty) {
             this.startGame(this.currentDifficulty);
