@@ -65,9 +65,58 @@ class MemoryGame {
             return;
         }
 
+        // ✅ ATIVAR ÁUDIO PARA DISPOSITIVOS MÓVEIS
+        this.enableMobileAudio();
+        
         await this.preloadSounds();
         this.setupEventListeners();
         this.showDifficultySelection();
+    }
+
+    // ✅ FUNÇÃO PARA ATIVAR ÁUDIO EM DISPOSITIVOS MÓVEIS (iOS/Android)
+    enableMobileAudio() {
+        // Criar contexto de áudio no touch (requerido no iOS)
+        const unlockAudio = () => {
+            // Verificar se já existe um contexto de áudio ativo
+            if (this.audioContext) return;
+            
+            try {
+                const context = new (window.AudioContext || window.webkitAudioContext)();
+                this.audioContext = context;
+                
+                // Criar um buffer silencioso e reproduzir
+                const buffer = context.createBuffer(1, 1, 22050);
+                const source = context.createBufferSource();
+                source.buffer = buffer;
+                source.connect(context.destination);
+                
+                // Verificar se o contexto está suspenso (comum em iOS)
+                if (context.state === 'suspended') {
+                    context.resume().then(() => {
+                        console.log('✅ Contexto de áudio ativado no mobile');
+                        source.start(0);
+                    });
+                } else {
+                    source.start(0);
+                }
+                
+                // Remover event listeners após primeiro touch
+                document.removeEventListener('touchstart', unlockAudio);
+                document.removeEventListener('touchend', unlockAudio);
+                document.removeEventListener('click', unlockAudio);
+                
+            } catch (error) {
+                console.warn('❌ Erro ao ativar áudio mobile:', error);
+            }
+        };
+        
+        // Adicionar listeners para diferentes eventos de interação
+        document.addEventListener('touchstart', unlockAudio, { once: true, passive: true });
+        document.addEventListener('touchend', unlockAudio, { once: true, passive: true });
+        document.addEventListener('click', unlockAudio, { once: true });
+        
+        // Também tentar ativar no carregamento da página se já houver interação
+        setTimeout(unlockAudio, 1000);
     }
 
     // ✅ PRÉ-CARREGAR SONS
