@@ -18,12 +18,12 @@ class MemoryGame {
         this.musicStarted = false;
         this.playerName = '';
         this.audioContext = null;
-        this.soundBuffers = {}; // ✅ NOVO: Buffer para sons de efeitos
+        this.soundBuffers = {};
 
-        // ✅ CONFIGURAÇÃO DO SUPABASE
+        // ✅ CONFIGURAÇÃO DO SUPABASE (MESMA DO INDEX.HTML)
         this.supabaseConfig = {
             url: 'https://nrvbpipvxyyuwjrjccjk.supabase.co',
-            key: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5ydmJwaXB2eHl5dXdqcmpjY2prIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjM5NDgxMTQsImV4cCI6MjA3OTUyNDExNH0.COITQUYgEpqbUYa_FmNx4MrxsgIb9mdAu-qgWTu5HWY',
+            key: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhbmFzZSIsInJlZiI6Im5ydmJwaXB2eHl5dXdqcmpjY2prIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjM5NDgxMTQsImV4cCI6MjA3OTUyNDExNH0.COITQUYgEpqbUYa_FmNx4MrxsgIb9mdAu-qgWTu5HWY',
             table: 'global_ranking'
         };
 
@@ -50,9 +50,9 @@ class MemoryGame {
         this.soundLoader = document.getElementById('soundLoader');
         this.visualEffects = document.getElementById('visualEffects');
 
-        // Elementos de áudio - APENAS música de fundo usa elemento <audio>
+        // Elementos de áudio
         this.sounds = {
-            background: document.getElementById('musica_fundo') // ✅ APENAS música de fundo
+            background: document.getElementById('musica_fundo')
         };
 
         this.init(); 
@@ -66,7 +66,7 @@ class MemoryGame {
             return;
         }
 
-        // ✅ VERIFICAR SE DEVE INICIAR MÚSICA (vindo do index.html)
+        // ✅ VERIFICAR SE DEVE INICIAR MÚSICA
         const shouldStartMusic = localStorage.getItem('memoryGameStartMusic');
         if (shouldStartMusic === 'true') {
             this.musicStarted = false;
@@ -94,21 +94,18 @@ class MemoryGame {
             this.startBackgroundMusic();
         }
         
-        console.log('🎵 Sistema de áudio carregado - Música NUNCA para!');
+        console.log('🎵 Sistema de áudio carregado');
     }
 
-    // ✅ NOVO: SISTEMA DE ÁUDIO MELHORADO
+    // ✅ SISTEMA DE ÁUDIO MELHORADO
     async initAudioSystem() {
         try {
             this.soundLoader.style.display = 'flex';
             
-            // ✅ INICIAR CONTEXTO DE ÁUDIO PARA EFEITOS SONOROS
             this.audioContext = new (window.AudioContext || window.webkitAudioContext)();
             
-            // ✅ CARREGAR MÚSICA DE FUNDO (elemento <audio> tradicional)
             await this.loadBackgroundMusic();
             
-            // ✅ CARREGAR SONS DE EFEITOS (usando AudioBuffer - NÃO INTERFERE NA MÚSICA)
             await this.loadSoundEffects();
             
             console.log('✅ Todos os áudios carregados');
@@ -120,7 +117,6 @@ class MemoryGame {
         }
     }
 
-    // ✅ CARREGAR MÚSICA DE FUNDO
     async loadBackgroundMusic() {
         return new Promise((resolve) => {
             const music = this.sounds.background;
@@ -134,7 +130,6 @@ class MemoryGame {
         });
     }
 
-    // ✅ NOVO: CARREGAR SONS DE EFEITOS USANDO AUDIOBUFFER
     async loadSoundEffects() {
         const soundFiles = {
             flip: 'sounds/flip.mp3',
@@ -153,7 +148,6 @@ class MemoryGame {
                 console.log(`✅ Som ${name} carregado via AudioBuffer`);
             } catch (error) {
                 console.warn(`❌ Erro ao carregar som ${name}:`, error);
-                // Criar som fallback simples
                 this.createFallbackSound(name);
             }
         });
@@ -161,7 +155,6 @@ class MemoryGame {
         await Promise.all(loadPromises);
     }
 
-    // ✅ FALLBACK PARA SONS
     createFallbackSound(type) {
         try {
             const buffer = this.audioContext.createBuffer(1, 22050, 22050);
@@ -187,7 +180,6 @@ class MemoryGame {
         }
     }
 
-    // ✅ CARREGAR CONFIGURAÇÕES SALVAS
     loadSettings() {
         const savedMusic = localStorage.getItem('memoryGameMusic');
         if (savedMusic !== null) {
@@ -200,13 +192,11 @@ class MemoryGame {
         }
     }
 
-    // ✅ SALVAR CONFIGURAÇÕES
     saveSettings() {
         localStorage.setItem('memoryGameMusic', JSON.stringify(this.musicEnabled));
         localStorage.setItem('memoryGameSound', JSON.stringify(this.soundEnabled));
     }
 
-    // ✅ CONFIGURAR EVENT LISTENERS
     setupEventListeners() {
         this.backBtn.addEventListener('click', () => {
             this.playSound('click');
@@ -234,18 +224,15 @@ class MemoryGame {
             this.saveSettings();
         });
 
-        // ✅ BOTÃO DE MÚSICA
         if (this.musicToggle) {
             this.musicToggle.addEventListener('click', () => {
                 this.playSound('click');
                 this.startBackgroundMusicOnInteraction();
                 
                 if (this.musicEnabled) {
-                    // Se a música está ativada, vamos desativar
                     this.musicEnabled = false;
                     this.stopBackgroundMusic();
                 } else {
-                    // Se a música está desativada, vamos ativar
                     this.musicEnabled = true;
                     this.startBackgroundMusic();
                 }
@@ -255,7 +242,6 @@ class MemoryGame {
             });
         }
 
-        // ✅ ADICIONAR INICIADOR DE MÚSICA EM TODOS OS BOTÕES DE INTERAÇÃO
         document.querySelectorAll('.difficulty-option').forEach(option => {
             option.addEventListener('click', (e) => {
                 this.playSound('click');
@@ -280,7 +266,6 @@ class MemoryGame {
         });
     }
 
-    // ✅ NOVA FUNÇÃO: INICIAR MÚSICA NA PRIMEIRA INTERAÇÃO
     startBackgroundMusicOnInteraction() {
         if (this.musicEnabled && !this.musicStarted) {
             console.log('🎵 Primeira interação - iniciando música de fundo');
@@ -295,7 +280,6 @@ class MemoryGame {
             this.soundEnabled ? 'Desativar som' : 'Ativar som');
     }
 
-    // ✅ ATUALIZAR BOTÃO DE MÚSICA
     updateMusicButton() {
         if (this.musicToggle) {
             if (this.musicEnabled) {
@@ -318,7 +302,6 @@ class MemoryGame {
         }
     }
 
-    // ✅ REPRODUZIR SOM DE EFEITO (USANDO AUDIOBUFFER - NÃO INTERFERE NA MÚSICA)
     playSound(type) {
         if (!this.soundEnabled || !this.audioContext) return;
 
@@ -332,10 +315,8 @@ class MemoryGame {
                 source.connect(gainNode);
                 gainNode.connect(this.audioContext.destination);
                 
-                // Configurar volume
                 gainNode.gain.value = 0.7;
                 
-                // Reproduzir - NÃO INTERFERE NA MÚSICA DE FUNDO
                 source.start(0);
                 
             } catch (error) {
@@ -344,7 +325,6 @@ class MemoryGame {
         }
     }
 
-    // ✅ INICIAR MÚSICA DE FUNDO (ELEMENTO <AUDIO> TRADICIONAL)
     startBackgroundMusic() {
         if (!this.musicEnabled) return;
         
@@ -359,7 +339,7 @@ class MemoryGame {
                 
                 if (playPromise !== undefined) {
                     playPromise.then(() => {
-                        console.log('🎶 Música de fundo iniciada - NUNCA para!');
+                        console.log('🎶 Música de fundo iniciada');
                         this.musicStarted = true;
                         this.updateMusicButton();
                     }).catch(error => {
@@ -374,7 +354,6 @@ class MemoryGame {
         }
     }
 
-    // ✅ PARAR MÚSICA DE FUNDO (APENAS QUANDO USUÁRIO DESATIVA)
     stopBackgroundMusic() {
         const music = this.sounds.background;
         if (music) {
@@ -385,21 +364,17 @@ class MemoryGame {
         }
     }
 
-    // ✅ ATUALIZAR A FUNÇÃO showDifficultySelection PARA LIMPAR OVERLAY
     showDifficultySelection() {
-        // Fechar overlay de vitória se existir
         const victoryOverlay = document.querySelector('.victory-overlay');
         if (victoryOverlay) {
             victoryOverlay.remove();
         }
         
-        // Fechar overlay de histórico se existir
         const historyOverlay = document.querySelector('.history-overlay');
         if (historyOverlay) {
             historyOverlay.remove();
         }
 
-        // Fechar overlay de ranking se existir
         const rankingOverlay = document.querySelector('.ranking-overlay');
         if (rankingOverlay) {
             rankingOverlay.remove();
@@ -414,18 +389,15 @@ class MemoryGame {
             opt.classList.remove('selected');
         });
         
-        // Parar timer se estiver rodando
         this.stopTimer();
         this.gameStarted = false;
 
-        // ✅ MANTER MÚSICA RODANDO SE JÁ ESTIVER INICIADA
         if (this.musicEnabled && this.musicStarted) {
             this.startBackgroundMusic();
         }
     }
 
     startGame(difficulty) {
-        // ✅ INICIAR MÚSICA SE AINDA NÃO COMEÇOU
         this.startBackgroundMusicOnInteraction();
         
         document.getElementById('difficultySection').style.display = 'none';
@@ -441,7 +413,6 @@ class MemoryGame {
         this.setupBoard(config);
         this.startTimer();
 
-        // ✅ GARANTIR QUE A MÚSICA ESTEJA RODANDO NO JOGO
         if (this.musicEnabled && this.musicStarted) {
             this.startBackgroundMusic();
         }
@@ -799,37 +770,7 @@ class MemoryGame {
         return finalScore;
     }
 
-    // ✅ SISTEMA DE RANKING GLOBAL COM SUPABASE - ATUALIZADO
-    async saveGameHistory(finalScore, gameTime, difficulty) {
-        try {
-            const gameData = {
-                playerName: this.playerName,
-                score: finalScore,
-                time: gameTime,
-                moves: this.moves,
-                difficulty: difficulty,
-                efficiency: this.totalPairs > 0 ? 
-                    Math.round((this.matchedPairs / this.moves) * 100) || 0 : 0,
-                date: new Date().toISOString()
-            };
-
-            // 1. Salvar localmente
-            const history = this.getGameHistory();
-            history.unshift(gameData);
-            const limitedHistory = history.slice(0, 50);
-            localStorage.setItem('memoryGameHistory', JSON.stringify(limitedHistory));
-
-            // 2. ✅ SALVAR NO RANKING GLOBAL ONLINE (SUPABASE)
-            await this.saveToSupabaseRanking(gameData);
-            
-            console.log('🎉 Dados salvos no ranking global!');
-            
-        } catch (error) {
-            console.error('Erro ao salvar histórico:', error);
-        }
-    }
-
-    // ✅ FUNÇÃO CORRIGIDA PARA BUSCAR RANKING DO SUPABASE
+    // ✅ FUNÇÃO CORRIGIDA PARA BUSCAR RANKING - IDÊNTICA AO INDEX.HTML
     async fetchGlobalRanking() {
         try {
             console.log('🌐 Buscando ranking do Supabase...');
@@ -858,7 +799,6 @@ class MemoryGame {
             const data = await response.json();
             console.log('✅ Dados brutos recebidos:', data);
             
-            // Verificar se os dados são válidos
             if (!Array.isArray(data)) {
                 console.warn('❌ Dados não são um array:', data);
                 return this.getLocalRankingFallback();
@@ -866,7 +806,7 @@ class MemoryGame {
             
             console.log('✅ Ranking carregado:', data.length, 'jogadores');
             
-            // Converter formato do Supabase com validações robustas
+            // ✅ MESMA LÓGICA DO INDEX.HTML
             const formattedRanking = data
                 .filter(player => {
                     const isValid = player && 
@@ -890,7 +830,6 @@ class MemoryGame {
                     date: player.created_at || new Date().toISOString()
                 }))
                 .sort((a, b) => {
-                    // Ordenar por score (decrescente) e depois por moves (crescente)
                     if (b.score !== a.score) {
                         return b.score - a.score;
                     }
@@ -902,7 +841,6 @@ class MemoryGame {
             
         } catch (error) {
             console.warn('❌ Erro ao buscar ranking online:', error);
-            // Fallback para localStorage
             const fallback = this.getLocalRankingFallback();
             console.log('🔄 Usando fallback local:', fallback.length, 'jogadores');
             return fallback;
@@ -920,7 +858,6 @@ class MemoryGame {
             
             this.closeNotification();
             
-            // ✅ VERIFICAR SE HÁ DADOS VÁLIDOS
             if (!globalRanking || globalRanking.length === 0) {
                 console.warn('❌ Ranking vazio ou indefinido');
                 this.showEmptyRanking();
@@ -1023,12 +960,11 @@ class MemoryGame {
         document.body.insertAdjacentHTML('beforeend', emptyHTML);
     }
 
-    // ✅ SALVAR NO SUPABASE RANKING - ATUALIZADO
+    // ✅ SALVAR NO SUPABASE RANKING
     async saveToSupabaseRanking(gameData) {
         try {
             console.log('💾 Salvando no Supabase...', gameData);
             
-            // Preparar dados para o Supabase
             const supabaseData = {
                 player_name: gameData.playerName,
                 score: gameData.score,
@@ -1039,7 +975,6 @@ class MemoryGame {
                 created_at: new Date().toISOString()
             };
 
-            // Tentar adicionar novo registro
             const response = await fetch(
                 `${this.supabaseConfig.url}/rest/v1/${this.supabaseConfig.table}`,
                 {
@@ -1059,7 +994,6 @@ class MemoryGame {
                 this.showNotification('🎉 Pontuação salva no ranking!', 'success');
                 return true;
             } else if (response.status === 409) {
-                // Conflito - jogador já existe, tentar atualizar
                 console.log('🔄 Jogador já existe, tentando atualizar...');
                 return await this.updateExistingPlayer(gameData);
             } else {
@@ -1070,16 +1004,13 @@ class MemoryGame {
             console.error('❌ Erro ao salvar no Supabase:', error);
             this.showNotification('⚠️ Ranking salvo localmente', 'info');
             
-            // Fallback para localStorage
             this.saveToLocalRanking(gameData);
             return false;
         }
     }
 
-    // ✅ ATUALIZAR JOGADOR EXISTENTE
     async updateExistingPlayer(gameData) {
         try {
-            // Buscar ID do jogador existente
             const searchResponse = await fetch(
                 `${this.supabaseConfig.url}/rest/v1/${this.supabaseConfig.table}?player_name=eq.${encodeURIComponent(gameData.playerName)}&difficulty=eq.${gameData.difficulty}&select=id,score`,
                 {
@@ -1103,7 +1034,6 @@ class MemoryGame {
 
             const existingPlayer = existingPlayers[0];
             
-            // Só atualizar se a nova pontuação for maior
             if (gameData.score > existingPlayer.score) {
                 const updateResponse = await fetch(
                     `${this.supabaseConfig.url}/rest/v1/${this.supabaseConfig.table}?id=eq.${existingPlayer.id}`,
@@ -1144,7 +1074,6 @@ class MemoryGame {
         }
     }
 
-    // ✅ FALLBACK LOCAL
     saveToLocalRanking(gameData) {
         try {
             const localRanking = JSON.parse(localStorage.getItem('memoryGameGlobalRanking') || '[]');
@@ -1185,6 +1114,35 @@ class MemoryGame {
             return JSON.parse(localStorage.getItem('memoryGameGlobalRanking') || '[]');
         } catch {
             return [];
+        }
+    }
+
+    async saveGameHistory(finalScore, gameTime, difficulty) {
+        try {
+            const gameData = {
+                playerName: this.playerName,
+                score: finalScore,
+                time: gameTime,
+                moves: this.moves,
+                difficulty: difficulty,
+                efficiency: this.totalPairs > 0 ? 
+                    Math.round((this.matchedPairs / this.moves) * 100) || 0 : 0,
+                date: new Date().toISOString()
+            };
+
+            // 1. Salvar localmente
+            const history = this.getGameHistory();
+            history.unshift(gameData);
+            const limitedHistory = history.slice(0, 50);
+            localStorage.setItem('memoryGameHistory', JSON.stringify(limitedHistory));
+
+            // 2. ✅ SALVAR NO RANKING GLOBAL ONLINE (SUPABASE)
+            await this.saveToSupabaseRanking(gameData);
+            
+            console.log('🎉 Dados salvos no ranking global!');
+            
+        } catch (error) {
+            console.error('Erro ao salvar histórico:', error);
         }
     }
 
@@ -1239,7 +1197,6 @@ class MemoryGame {
         const finalScore = this.calculateFinalScore();
         const gameTime = this.timer.textContent;
         
-        // ✅ SALVAR NO HISTÓRICO E RANKING
         this.saveGameHistory(finalScore, gameTime, this.currentDifficulty);
         
         setTimeout(() => {
@@ -1285,7 +1242,6 @@ class MemoryGame {
         return colors[Math.floor(Math.random() * colors.length)];
     }
 
-    // ✅ VICTORY MESSAGE ATUALIZADA
     showVictoryMessage(finalScore, gameTime) {
         const performance = this.calculatePerformance();
         
@@ -1384,7 +1340,6 @@ class MemoryGame {
         }
     }
 
-    // ✅ HISTÓRICO INDIVIDUAL
     showHistory() {
         const history = this.getGameHistory();
         const playerHistory = history.filter(game => game.playerName === this.playerName);
@@ -1444,7 +1399,6 @@ class MemoryGame {
         }
     }
 
-    // ✅ FUNÇÃO PARA LIMPAR HISTÓRICO INDIVIDUAL
     clearIndividualHistory() {
         if (confirm('Tem certeza que deseja limpar seu histórico individual?\n\nEsta ação não pode ser desfeita.')) {
             try {
@@ -1460,7 +1414,6 @@ class MemoryGame {
         }
     }
 
-    // ✅ FUNÇÕES AUXILIARES PARA RANKING
     generateRankingList(ranking, currentPlayer) {
         return `
             <div class="ranking-list">
@@ -1588,7 +1541,6 @@ class MemoryGame {
         return { text: 'CONTINUE PRATICANDO! 🌱', class: 'practice' };
     }
 
-    // ✅ RESTART GAME ATUALIZADO COM MÚSICA
     restartGame() {
         const victoryOverlay = document.querySelector('.victory-overlay');
         if (victoryOverlay) {
@@ -1607,7 +1559,6 @@ class MemoryGame {
         
         this.stopTimer();
         
-        // ✅ MANTER MÚSICA DE FUNDO AO REINICIAR
         if (this.musicEnabled && this.musicStarted) {
             this.startBackgroundMusic();
         }
