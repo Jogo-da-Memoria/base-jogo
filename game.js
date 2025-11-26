@@ -20,6 +20,10 @@ class MemoryGame {
         this.audioContext = null;
         this.soundBuffers = {}; // ✅ NOVO: Buffer para sons de efeitos
 
+        // ✅ VARIÁVEIS PARA FILTROS DE RANKING
+        this.globalRankingData = [];
+        this.currentDifficultyFilter = 'all';
+
         // ✅ CONFIGURAÇÃO DO SUPABASE
         this.supabaseConfig = {
             url: 'https://nrvbpipvxyyuwjrjccjk.supabase.co',
@@ -835,7 +839,7 @@ class MemoryGame {
             console.log('🌐 Buscando ranking do Supabase...');
             
             const response = await fetch(
-                `${this.supabaseConfig.url}/rest/v1/${this.supabaseConfig.table}?select=player_name,score,moves,game_time,difficulty,efficiency,created_at&score=gt.0&order=score.desc,moves.asc&limit=50`,
+                `${this.supabaseConfig.url}/rest/v1/${this.supabaseConfig.table}?select=player_name,score,moves,game_time,difficulty,efficiency,created_at&score=gt.0&order=score.desc,moves.asc&limit=100`,
                 {
                     method: 'GET',
                     headers: {
@@ -909,25 +913,30 @@ class MemoryGame {
         }
     }
 
-    // ✅ FUNÇÃO ATUALIZADA PARA MOSTRAR RANKING GLOBAL
+    // ✅ FUNÇÃO ATUALIZADA PARA MOSTRAR RANKING GLOBAL COM FILTROS
     async showGlobalRanking(source = 'menu') {
         try {
             console.log(`🌐 Buscando ranking global (fonte: ${source})...`);
             this.showNotification('🔄 Carregando ranking global...', 'info');
             
-            const globalRanking = await this.fetchGlobalRanking();
+            // Carregar todos os dados do ranking
+            this.globalRankingData = await this.fetchGlobalRanking();
             const currentPlayer = this.playerName;
             
             this.closeNotification();
             
             // ✅ VERIFICAR SE HÁ DADOS VÁLIDOS
-            if (!globalRanking || globalRanking.length === 0) {
+            if (!this.globalRankingData || this.globalRankingData.length === 0) {
                 console.warn('❌ Ranking vazio ou indefinido');
                 this.showEmptyRanking();
                 return;
             }
             
-            console.log('🎯 Exibindo ranking com:', globalRanking.length, 'jogadores');
+            console.log('🎯 Exibindo ranking com:', this.globalRankingData.length, 'jogadores');
+            
+            // Aplicar filtro inicial (todos)
+            this.currentDifficultyFilter = 'all';
+            const filteredRanking = this.filterRankingByDifficulty(this.globalRankingData, this.currentDifficultyFilter);
             
             const rankingHTML = `
                 <div class="ranking-overlay">
@@ -936,28 +945,44 @@ class MemoryGame {
                             <h2>🏆 Ranking Global</h2>
                             <div class="ranking-status">
                                 <span class="online-badge">🌐 SUPABASE</span>
-                                <span class="players-count">${globalRanking.length} jogadores</span>
+                                <span class="players-count">${filteredRanking.length} jogadores</span>
                             </div>
                             <button class="btn-close" onclick="window.memoryGame.closeRanking()" aria-label="Fechar ranking">
                                 ×
                             </button>
                         </div>
                         
+                        <!-- FILTROS DE DIFICULDADE -->
+                        <div class="difficulty-filters">
+                            <button class="filter-btn ${this.currentDifficultyFilter === 'all' ? 'active' : ''}" data-difficulty="all">
+                                🌟 Todos
+                            </button>
+                            <button class="filter-btn ${this.currentDifficultyFilter === 'easy' ? 'active' : ''}" data-difficulty="easy">
+                                🌱 Fácil
+                            </button>
+                            <button class="filter-btn ${this.currentDifficultyFilter === 'medium' ? 'active' : ''}" data-difficulty="medium">
+                                🎯 Médio
+                            </button>
+                            <button class="filter-btn ${this.currentDifficultyFilter === 'hard' ? 'active' : ''}" data-difficulty="hard">
+                                🔥 Difícil
+                            </button>
+                        </div>
+                        
                         <div class="ranking-content">
-                            ${this.generateRankingList(globalRanking, currentPlayer)}
+                            ${this.generateRankingList(filteredRanking, currentPlayer)}
                         </div>
                         
                         <div class="ranking-stats">
                             <div class="stat">
-                                <span class="stat-value">${globalRanking.length}</span>
+                                <span class="stat-value">${filteredRanking.length}</span>
                                 <span class="stat-label">Jogadores</span>
                             </div>
                             <div class="stat">
-                                <span class="stat-value">${globalRanking[0]?.score || 0}</span>
+                                <span class="stat-value">${filteredRanking[0]?.score || 0}</span>
                                 <span class="stat-label">Recorde</span>
                             </div>
                             <div class="stat">
-                                <span class="stat-value">${this.getPlayerRank(globalRanking, currentPlayer) || '-'}</span>
+                                <span class="stat-value">${this.getPlayerRank(filteredRanking, currentPlayer) || '-'}</span>
                                 <span class="stat-label">Sua Posição</span>
                             </div>
                         </div>
@@ -977,11 +1002,64 @@ class MemoryGame {
             this.closeRanking();
             document.body.insertAdjacentHTML('beforeend', rankingHTML);
             
+            // Adicionar event listeners para os filtros
+            this.setupDifficultyFilters();
+            
         } catch (error) {
             console.error('❌ Erro ao carregar ranking:', error);
             this.showNotification('❌ Erro ao carregar ranking global', 'error');
             this.showEmptyRanking();
         }
+    }
+
+    // ✅ FUNÇÃO PARA CONFIGURAR FILTROS DE DIFICULDADE
+    setupDifficultyFilters() {
+        const filterButtons = document.querySelectorAll('.filter-btn');
+        
+        filterButtons.forEach(button => {
+            button.addEventListener('click', (e) => {
+                const difficulty = e.target.dataset.difficulty;
+                
+                // Atualizar botão ativo
+                filterButtons.forEach(btn => btn.classList.remove('active'));
+                e.target.classList.add('active');
+                
+                // Aplicar filtro
+                this.currentDifficultyFilter = difficulty;
+                const filteredRanking = this.filterRankingByDifficulty(this.globalRankingData, difficulty);
+                const currentPlayer = this.playerName;
+                
+                // Atualizar a lista
+                const rankingContent = document.querySelector('.ranking-content');
+                if (rankingContent) {
+                    rankingContent.innerHTML = this.generateRankingList(filteredRanking, currentPlayer);
+                }
+                
+                // Atualizar estatísticas
+                this.updateRankingStats(filteredRanking, currentPlayer);
+            });
+        });
+    }
+
+    // ✅ FUNÇÃO PARA FILTRAR RANKING POR DIFICULDADE
+    filterRankingByDifficulty(ranking, difficulty) {
+        if (difficulty === 'all') {
+            return ranking;
+        }
+        return ranking.filter(player => player.difficulty === difficulty);
+    }
+
+    // ✅ FUNÇÃO PARA ATUALIZAR ESTATÍSTICAS DO RANKING
+    updateRankingStats(ranking, currentPlayer) {
+        const playersCount = document.querySelector('.players-count');
+        const statPlayers = document.querySelector('.ranking-stats .stat:nth-child(1) .stat-value');
+        const statRecord = document.querySelector('.ranking-stats .stat:nth-child(2) .stat-value');
+        const statPosition = document.querySelector('.ranking-stats .stat:nth-child(3) .stat-value');
+        
+        if (playersCount) playersCount.textContent = `${ranking.length} jogadores`;
+        if (statPlayers) statPlayers.textContent = ranking.length;
+        if (statRecord) statRecord.textContent = ranking[0]?.score || 0;
+        if (statPosition) statPosition.textContent = this.getPlayerRank(ranking, currentPlayer) || '-';
     }
 
     // ✅ FUNÇÃO PARA RANKING VAZIO
@@ -998,6 +1076,13 @@ class MemoryGame {
                         <button class="btn-close" onclick="window.memoryGame.closeRanking()" aria-label="Fechar ranking">
                             ×
                         </button>
+                    </div>
+                    
+                    <div class="difficulty-filters">
+                        <button class="filter-btn active" data-difficulty="all">🌟 Todos</button>
+                        <button class="filter-btn" data-difficulty="easy">🌱 Fácil</button>
+                        <button class="filter-btn" data-difficulty="medium">🎯 Médio</button>
+                        <button class="filter-btn" data-difficulty="hard">🔥 Difícil</button>
                     </div>
                     
                     <div class="ranking-content">
@@ -1021,6 +1106,7 @@ class MemoryGame {
         
         this.closeRanking();
         document.body.insertAdjacentHTML('beforeend', emptyHTML);
+        this.setupDifficultyFilters();
     }
 
     // ✅ SALVAR NO SUPABASE RANKING - ATUALIZADO
@@ -1462,9 +1548,14 @@ class MemoryGame {
 
     // ✅ FUNÇÕES AUXILIARES PARA RANKING
     generateRankingList(ranking, currentPlayer) {
+        if (!ranking || ranking.length === 0) {
+            const difficultyName = this.getDifficultyDisplayName(this.currentDifficultyFilter);
+            return `<div class="empty-ranking">🎯 Nenhum jogador no ranking ${difficultyName}.</div>`;
+        }
+        
         return `
             <div class="ranking-list">
-                ${ranking.slice(0, 20).map((player, index) => `
+                ${ranking.slice(0, 50).map((player, index) => `
                     <div class="ranking-item ${player.playerName === currentPlayer ? 'current-player' : ''} ${index < 3 ? `top-${index + 1}` : ''}">
                         <div class="ranking-position">
                             ${this.getRankingMedal(index + 1)}
@@ -1479,7 +1570,7 @@ class MemoryGame {
                                 <span>•</span>
                                 <span>${player.time}</span>
                                 <span>•</span>
-                                <span>${this.getDifficultyName(player.difficulty)}</span>
+                                <span class="difficulty-badge-small ${player.difficulty}">${this.getDifficultyName(player.difficulty)}</span>
                             </div>
                         </div>
                         <div class="ranking-score">
@@ -1504,6 +1595,25 @@ class MemoryGame {
     getPlayerRank(ranking, playerName) {
         const playerIndex = ranking.findIndex(player => player.playerName === playerName);
         return playerIndex !== -1 ? playerIndex + 1 : null;
+    }
+
+    getDifficultyName(difficulty) {
+        const names = {
+            easy: 'Fácil',
+            medium: 'Médio',
+            hard: 'Difícil'
+        };
+        return names[difficulty] || difficulty;
+    }
+
+    getDifficultyDisplayName(difficulty) {
+        const names = { 
+            all: 'Geral',
+            easy: 'Fácil', 
+            medium: 'Médio', 
+            hard: 'Difícil' 
+        };
+        return names[difficulty] || difficulty;
     }
 
     generateHistoryList(history) {
@@ -1534,15 +1644,6 @@ class MemoryGame {
                 `).join('')}
             </div>
         `;
-    }
-
-    getDifficultyName(difficulty) {
-        const names = {
-            easy: 'Fácil',
-            medium: 'Médio',
-            hard: 'Difícil'
-        };
-        return names[difficulty] || difficulty;
     }
 
     formatDate(dateString) {

@@ -121,7 +121,7 @@
     </section>
   </main>
 
-  <!-- JAVASCRIPT DA TELA INICIAL - CORRIGIDO E FUNCIONAL -->
+  <!-- JAVASCRIPT DA TELA INICIAL - COM FILTROS DE DIFICULDADE -->
   <script>
     // ✅ CONFIGURAÇÃO DO SUPABASE (MESMA DO GAME.JS)
     const supabaseConfig = {
@@ -141,6 +141,10 @@
     const historyBtn = document.getElementById('historyBtn');
     const rankingBtn = document.getElementById('rankingBtn');
     const howBtn = document.getElementById('howBtn');
+
+    // Variável global para armazenar o ranking completo
+    let globalRankingData = [];
+    let currentDifficultyFilter = 'all';
 
     // ✅ SISTEMA DE LOGIN
     loginForm.addEventListener('submit', (e) => {
@@ -209,7 +213,7 @@
       showIndividualHistory();
     });
 
-    // ✅ BOTÃO "RANKING GLOBAL" - CORRIGIDO E FUNCIONAL
+    // ✅ BOTÃO "RANKING GLOBAL" - COM FILTROS DE DIFICULDADE
     rankingBtn.addEventListener('click', async () => {
       await showGlobalRanking();
     });
@@ -266,23 +270,28 @@
       }
     }
 
-    // ✅ FUNÇÃO CORRIGIDA PARA MOSTRAR RANKING GLOBAL
+    // ✅ FUNÇÃO ATUALIZADA PARA MOSTRAR RANKING COM FILTROS
     async function showGlobalRanking() {
       try {
         showNotification('🔄 Carregando ranking global...', 'info');
         
-        const globalRanking = await fetchGlobalRanking();
+        // Carregar todos os dados do ranking
+        globalRankingData = await fetchGlobalRanking();
         const currentPlayer = localStorage.getItem('memoryGamePlayer');
         
         closeNotification();
         
-        if (!globalRanking || globalRanking.length === 0) {
+        if (!globalRankingData || globalRankingData.length === 0) {
           console.warn('❌ Ranking vazio ou indefinido');
           showEmptyRanking();
           return;
         }
         
-        console.log('🎯 Exibindo ranking com:', globalRanking.length, 'jogadores');
+        console.log('🎯 Exibindo ranking com:', globalRankingData.length, 'jogadores');
+        
+        // Aplicar filtro inicial (todos)
+        currentDifficultyFilter = 'all';
+        const filteredRanking = filterRankingByDifficulty(globalRankingData, currentDifficultyFilter);
         
         const rankingHTML = `
           <div class="ranking-overlay">
@@ -291,28 +300,44 @@
                 <h2>🏆 Ranking Global</h2>
                 <div class="ranking-status">
                   <span class="online-badge">🌐 SUPABASE</span>
-                  <span class="players-count">${globalRanking.length} jogadores</span>
+                  <span class="players-count">${filteredRanking.length} jogadores</span>
                 </div>
                 <button class="btn-close" onclick="closeRanking()" aria-label="Fechar ranking">
                   ×
                 </button>
               </div>
               
+              <!-- FILTROS DE DIFICULDADE -->
+              <div class="difficulty-filters">
+                <button class="filter-btn ${currentDifficultyFilter === 'all' ? 'active' : ''}" data-difficulty="all">
+                  🌟 Todos
+                </button>
+                <button class="filter-btn ${currentDifficultyFilter === 'easy' ? 'active' : ''}" data-difficulty="easy">
+                  🌱 Fácil
+                </button>
+                <button class="filter-btn ${currentDifficultyFilter === 'medium' ? 'active' : ''}" data-difficulty="medium">
+                  🎯 Médio
+                </button>
+                <button class="filter-btn ${currentDifficultyFilter === 'hard' ? 'active' : ''}" data-difficulty="hard">
+                  🔥 Difícil
+                </button>
+              </div>
+              
               <div class="ranking-content">
-                ${generateRankingList(globalRanking, currentPlayer)}
+                ${generateRankingList(filteredRanking, currentPlayer)}
               </div>
               
               <div class="ranking-stats">
                 <div class="stat">
-                  <span class="stat-value">${globalRanking.length}</span>
+                  <span class="stat-value">${filteredRanking.length}</span>
                   <span class="stat-label">Jogadores</span>
                 </div>
                 <div class="stat">
-                  <span class="stat-value">${globalRanking[0]?.score || 0}</span>
+                  <span class="stat-value">${filteredRanking[0]?.score || 0}</span>
                   <span class="stat-label">Recorde</span>
                 </div>
                 <div class="stat">
-                  <span class="stat-value">${getPlayerRank(globalRanking, currentPlayer) || '-'}</span>
+                  <span class="stat-value">${getPlayerRank(filteredRanking, currentPlayer) || '-'}</span>
                   <span class="stat-label">Sua Posição</span>
                 </div>
               </div>
@@ -332,6 +357,9 @@
         closeRanking();
         document.body.insertAdjacentHTML('beforeend', rankingHTML);
         
+        // Adicionar event listeners para os filtros
+        setupDifficultyFilters();
+        
       } catch (error) {
         console.error('❌ Erro ao carregar ranking:', error);
         showNotification('❌ Erro ao carregar ranking global', 'error');
@@ -339,13 +367,63 @@
       }
     }
 
-    // ✅ FUNÇÃO PRINCIPAL PARA BUSCAR RANKING (CORRIGIDA)
+    // ✅ FUNÇÃO PARA CONFIGURAR FILTROS DE DIFICULDADE
+    function setupDifficultyFilters() {
+      const filterButtons = document.querySelectorAll('.filter-btn');
+      
+      filterButtons.forEach(button => {
+        button.addEventListener('click', function() {
+          const difficulty = this.dataset.difficulty;
+          
+          // Atualizar botão ativo
+          filterButtons.forEach(btn => btn.classList.remove('active'));
+          this.classList.add('active');
+          
+          // Aplicar filtro
+          currentDifficultyFilter = difficulty;
+          const filteredRanking = filterRankingByDifficulty(globalRankingData, difficulty);
+          const currentPlayer = localStorage.getItem('memoryGamePlayer');
+          
+          // Atualizar a lista
+          const rankingContent = document.querySelector('.ranking-content');
+          if (rankingContent) {
+            rankingContent.innerHTML = generateRankingList(filteredRanking, currentPlayer);
+          }
+          
+          // Atualizar estatísticas
+          updateRankingStats(filteredRanking, currentPlayer);
+        });
+      });
+    }
+
+    // ✅ FUNÇÃO PARA FILTRAR RANKING POR DIFICULDADE
+    function filterRankingByDifficulty(ranking, difficulty) {
+      if (difficulty === 'all') {
+        return ranking;
+      }
+      return ranking.filter(player => player.difficulty === difficulty);
+    }
+
+    // ✅ FUNÇÃO PARA ATUALIZAR ESTATÍSTICAS DO RANKING
+    function updateRankingStats(ranking, currentPlayer) {
+      const playersCount = document.querySelector('.players-count');
+      const statPlayers = document.querySelector('.ranking-stats .stat:nth-child(1) .stat-value');
+      const statRecord = document.querySelector('.ranking-stats .stat:nth-child(2) .stat-value');
+      const statPosition = document.querySelector('.ranking-stats .stat:nth-child(3) .stat-value');
+      
+      if (playersCount) playersCount.textContent = `${ranking.length} jogadores`;
+      if (statPlayers) statPlayers.textContent = ranking.length;
+      if (statRecord) statRecord.textContent = ranking[0]?.score || 0;
+      if (statPosition) statPosition.textContent = getPlayerRank(ranking, currentPlayer) || '-';
+    }
+
+    // ✅ FUNÇÃO PRINCIPAL PARA BUSCAR RANKING
     async function fetchGlobalRanking() {
       try {
         console.log('🌐 [INDEX] Buscando ranking do Supabase...');
         
         const response = await fetch(
-          `${supabaseConfig.url}/rest/v1/${supabaseConfig.table}?select=player_name,score,moves,game_time,difficulty,efficiency,created_at&score=gt.0&order=score.desc,moves.asc&limit=50`,
+          `${supabaseConfig.url}/rest/v1/${supabaseConfig.table}?select=player_name,score,moves,game_time,difficulty,efficiency,created_at&score=gt.0&order=score.desc,moves.asc&limit=100`,
           {
             method: 'GET',
             headers: {
@@ -411,12 +489,13 @@
     // ✅ FUNÇÕES AUXILIARES PARA RANKING
     function generateRankingList(ranking, currentPlayer) {
       if (!ranking || ranking.length === 0) {
-        return '<div class="empty-ranking">🎯 Nenhuma pontuação no ranking ainda.</div>';
+        const difficultyName = getDifficultyDisplayName(currentDifficultyFilter);
+        return `<div class="empty-ranking">🎯 Nenhum jogador no ranking ${difficultyName}.</div>`;
       }
       
       return `
         <div class="ranking-list">
-          ${ranking.slice(0, 20).map((player, index) => `
+          ${ranking.slice(0, 50).map((player, index) => `
             <div class="ranking-item ${player.playerName === currentPlayer ? 'current-player' : ''} ${index < 3 ? `top-${index + 1}` : ''}">
               <div class="ranking-position">
                 ${getRankingMedal(index + 1)}
@@ -431,7 +510,7 @@
                   <span>•</span>
                   <span>${player.time}</span>
                   <span>•</span>
-                  <span>${getDifficultyName(player.difficulty)}</span>
+                  <span class="difficulty-badge-small ${player.difficulty}">${getDifficultyName(player.difficulty)}</span>
                 </div>
               </div>
               <div class="ranking-score">
@@ -468,6 +547,16 @@
       return names[difficulty] || difficulty;
     }
 
+    function getDifficultyDisplayName(difficulty) {
+      const names = { 
+        all: 'Geral',
+        easy: 'Fácil', 
+        medium: 'Médio', 
+        hard: 'Difícil' 
+      };
+      return names[difficulty] || difficulty;
+    }
+
     function getLocalRankingFallback() {
       try {
         const localRanking = JSON.parse(localStorage.getItem('memoryGameGlobalRanking') || '[]');
@@ -493,6 +582,13 @@
               </button>
             </div>
             
+            <div class="difficulty-filters">
+              <button class="filter-btn active" data-difficulty="all">🌟 Todos</button>
+              <button class="filter-btn" data-difficulty="easy">🌱 Fácil</button>
+              <button class="filter-btn" data-difficulty="medium">🎯 Médio</button>
+              <button class="filter-btn" data-difficulty="hard">🔥 Difícil</button>
+            </div>
+            
             <div class="ranking-content">
               <div class="empty-ranking">
                 🎯 Nenhuma pontuação no ranking ainda.<br><br>
@@ -514,6 +610,7 @@
       
       closeRanking();
       document.body.insertAdjacentHTML('beforeend', emptyHTML);
+      setupDifficultyFilters();
     }
 
     async function refreshRanking() {
@@ -638,7 +735,7 @@
       }
     });
 
-    // CSS dinâmico
+    // CSS dinâmico para os filtros
     const style = document.createElement('style');
     style.textContent = `
       .btn-warning {
@@ -678,6 +775,70 @@
         border-radius: 8px;
       }
 
+      /* FILTROS DE DIFICULDADE */
+      .difficulty-filters {
+        display: flex;
+        gap: 8px;
+        padding: 16px 20px;
+        border-bottom: 1px solid var(--glass);
+        justify-content: center;
+        flex-wrap: wrap;
+      }
+
+      .filter-btn {
+        padding: 10px 16px;
+        border: 2px solid var(--glass);
+        background: transparent;
+        border-radius: 12px;
+        cursor: pointer;
+        font-size: 0.85rem;
+        font-weight: 600;
+        transition: all 0.2s ease;
+        color: var(--muted);
+        flex: 1;
+        min-width: 80px;
+        text-align: center;
+      }
+
+      .filter-btn:hover {
+        background: var(--glass);
+        border-color: var(--accent);
+        color: var(--text);
+        transform: translateY(-1px);
+      }
+
+      .filter-btn.active {
+        background: var(--accent);
+        color: white;
+        border-color: var(--accent);
+        transform: translateY(-1px);
+        box-shadow: 0 4px 12px rgba(15, 98, 254, 0.3);
+      }
+
+      /* BADGES DE DIFICULDADE NAS LINHAS */
+      .difficulty-badge-small {
+        padding: 2px 8px;
+        border-radius: 10px;
+        font-size: 0.7rem;
+        font-weight: 600;
+        text-transform: uppercase;
+      }
+
+      .difficulty-badge-small.easy {
+        background: rgba(16, 185, 129, 0.1);
+        color: var(--success);
+      }
+
+      .difficulty-badge-small.medium {
+        background: rgba(245, 158, 11, 0.1);
+        color: #f59e0b;
+      }
+
+      .difficulty-badge-small.hard {
+        background: rgba(239, 68, 68, 0.1);
+        color: var(--danger);
+      }
+
       @keyframes slideInRight {
         from {
           transform: translateX(100%);
@@ -697,6 +858,20 @@
         to {
           transform: translateX(100%);
           opacity: 0;
+        }
+      }
+
+      /* RESPONSIVIDADE PARA FILTROS */
+      @media (max-width: 480px) {
+        .difficulty-filters {
+          gap: 6px;
+          padding: 12px 16px;
+        }
+        
+        .filter-btn {
+          padding: 8px 12px;
+          font-size: 0.8rem;
+          min-width: 70px;
         }
       }
     `;
