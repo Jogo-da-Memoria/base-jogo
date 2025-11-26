@@ -121,12 +121,12 @@
     </section>
   </main>
 
-  <!-- JAVASCRIPT DA TELA INICIAL - ATUALIZADO -->
+  <!-- JAVASCRIPT DA TELA INICIAL - CORRIGIDO E FUNCIONAL -->
   <script>
     // ✅ CONFIGURAÇÃO DO SUPABASE (MESMA DO GAME.JS)
     const supabaseConfig = {
       url: 'https://nrvbpipvxyyuwjrjccjk.supabase.co',
-      key: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhbmFzZSIsInJlZiI6Im5ydmJwaXB2eHl5dXdqcmpjY2prIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjM5NDgxMTQsImV4cCI6MjA3OTUyNDExNH0.COITQUYgEpqbUYa_FmNx4MrxsgIb9mdAu-qgWTu5HWY',
+      key: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5ydmJwaXB2eHl5dXdqcmpjY2prIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjM5NDgxMTQsImV4cCI6MjA3OTUyNDExNH0.COITQUYgEpqbUYa_FmNx4MrxsgIb9mdAu-qgWTu5HWY',
       table: 'global_ranking'
     };
 
@@ -209,7 +209,7 @@
       showIndividualHistory();
     });
 
-    // ✅ BOTÃO "RANKING GLOBAL": USA MESMA ABORDAGEM DO GAME.JS
+    // ✅ BOTÃO "RANKING GLOBAL" - CORRIGIDO E FUNCIONAL
     rankingBtn.addEventListener('click', async () => {
       await showGlobalRanking();
     });
@@ -266,27 +266,24 @@
       }
     }
 
-    // ✅ FUNÇÃO ATUALIZADA PARA MOSTRAR RANKING GLOBAL (MESMA DO GAME.JS)
+    // ✅ FUNÇÃO CORRIGIDA PARA MOSTRAR RANKING GLOBAL
     async function showGlobalRanking() {
       try {
         showNotification('🔄 Carregando ranking global...', 'info');
         
-        // Usar a mesma lógica do game.js
-        const globalRanking = await fetchGlobalRankingGameStyle();
+        const globalRanking = await fetchGlobalRanking();
         const currentPlayer = localStorage.getItem('memoryGamePlayer');
         
         closeNotification();
         
-        // Mesma verificação do game.js
         if (!globalRanking || globalRanking.length === 0) {
           console.warn('❌ Ranking vazio ou indefinido');
-          showEmptyRankingGameStyle();
+          showEmptyRanking();
           return;
         }
         
         console.log('🎯 Exibindo ranking com:', globalRanking.length, 'jogadores');
         
-        // Mesmo HTML do game.js
         const rankingHTML = `
           <div class="ranking-overlay">
             <div class="ranking-card">
@@ -302,7 +299,7 @@
               </div>
               
               <div class="ranking-content">
-                ${generateRankingListGameStyle(globalRanking, currentPlayer)}
+                ${generateRankingList(globalRanking, currentPlayer)}
               </div>
               
               <div class="ranking-stats">
@@ -315,7 +312,7 @@
                   <span class="stat-label">Recorde</span>
                 </div>
                 <div class="stat">
-                  <span class="stat-value">${getPlayerRankGameStyle(globalRanking, currentPlayer) || '-'}</span>
+                  <span class="stat-value">${getPlayerRank(globalRanking, currentPlayer) || '-'}</span>
                   <span class="stat-label">Sua Posição</span>
                 </div>
               </div>
@@ -324,7 +321,7 @@
                 <button onclick="closeRanking()" class="btn btn-ghost">
                   Fechar
                 </button>
-                <button onclick="refreshRankingGameStyle()" class="btn btn-secondary">
+                <button onclick="refreshRanking()" class="btn btn-secondary">
                   🔄 Atualizar
                 </button>
               </div>
@@ -338,14 +335,14 @@
       } catch (error) {
         console.error('❌ Erro ao carregar ranking:', error);
         showNotification('❌ Erro ao carregar ranking global', 'error');
-        showEmptyRankingGameStyle();
+        showEmptyRanking();
       }
     }
 
-    // ✅ FUNÇÃO IDÊNTICA À DO GAME.JS PARA BUSCAR RANKING
-    async function fetchGlobalRankingGameStyle() {
+    // ✅ FUNÇÃO PRINCIPAL PARA BUSCAR RANKING (CORRIGIDA)
+    async function fetchGlobalRanking() {
       try {
-        console.log('🌐 Buscando ranking do Supabase (game style)...');
+        console.log('🌐 [INDEX] Buscando ranking do Supabase...');
         
         const response = await fetch(
           `${supabaseConfig.url}/rest/v1/${supabaseConfig.table}?select=player_name,score,moves,game_time,difficulty,efficiency,created_at&score=gt.0&order=score.desc,moves.asc&limit=50`,
@@ -360,35 +357,27 @@
           }
         );
 
-        console.log('📡 Status da resposta:', response.status);
+        console.log('📡 [INDEX] Status da resposta:', response.status);
         
         if (!response.ok) {
-          const errorText = await response.text();
-          console.error('❌ Erro na resposta:', response.status, response.statusText, errorText);
           throw new Error(`Erro HTTP! status: ${response.status}`);
         }
         
         const data = await response.json();
-        console.log('✅ Dados brutos recebidos:', data);
+        console.log('✅ [INDEX] Dados recebidos:', data?.length, 'registros');
         
         if (!Array.isArray(data)) {
-          console.warn('❌ Dados não são um array:', data);
-          return getLocalRankingFallbackGameStyle();
+          console.warn('❌ [INDEX] Dados não são um array');
+          return getLocalRankingFallback();
         }
         
-        console.log('✅ Ranking carregado:', data.length, 'jogadores');
-        
-        // Converter formato do Supabase - MESMA LÓGICA DO GAME.JS
+        // ✅ PROCESSAMENTO IDÊNTICO AO game.js
         const formattedRanking = data
           .filter(player => {
             const isValid = player && 
               player.player_name && 
               player.player_name.trim() !== '' &&
               player.score > 0;
-            
-            if (!isValid) {
-              console.warn('❌ Jogador inválido filtrado:', player);
-            }
             return isValid;
           })
           .map((player, index) => ({
@@ -401,32 +390,36 @@
             efficiency: parseFloat(player.efficiency) || 0,
             date: player.created_at || new Date().toISOString()
           }))
+          // ✅ ORDENAÇÃO IDÊNTICA - score DESC, moves ASC
           .sort((a, b) => {
             if (b.score !== a.score) {
               return b.score - a.score;
             }
             return a.moves - b.moves;
           });
-        
-        console.log('✅ Ranking formatado:', formattedRanking.length, 'jogadores válidos');
+
+        console.log('✅ [INDEX] Ranking formatado:', formattedRanking.length, 'jogadores');
         return formattedRanking;
         
       } catch (error) {
-        console.warn('❌ Erro ao buscar ranking online:', error);
-        const fallback = getLocalRankingFallbackGameStyle();
-        console.log('🔄 Usando fallback local:', fallback.length, 'jogadores');
-        return fallback;
+        console.warn('❌ [INDEX] Erro ao buscar ranking:', error);
+        // ✅ FALLBACK IDÊNTICO
+        return getLocalRankingFallback();
       }
     }
 
-    // ✅ FUNÇÕES AUXILIARES IDÊNTICAS ÀS DO GAME.JS
-    function generateRankingListGameStyle(ranking, currentPlayer) {
+    // ✅ FUNÇÕES AUXILIARES PARA RANKING
+    function generateRankingList(ranking, currentPlayer) {
+      if (!ranking || ranking.length === 0) {
+        return '<div class="empty-ranking">🎯 Nenhuma pontuação no ranking ainda.</div>';
+      }
+      
       return `
         <div class="ranking-list">
           ${ranking.slice(0, 20).map((player, index) => `
             <div class="ranking-item ${player.playerName === currentPlayer ? 'current-player' : ''} ${index < 3 ? `top-${index + 1}` : ''}">
               <div class="ranking-position">
-                ${getRankingMedalGameStyle(index + 1)}
+                ${getRankingMedal(index + 1)}
               </div>
               <div class="ranking-player-info">
                 <div class="player-name">
@@ -438,7 +431,7 @@
                   <span>•</span>
                   <span>${player.time}</span>
                   <span>•</span>
-                  <span>${getDifficultyNameGameStyle(player.difficulty)}</span>
+                  <span>${getDifficultyName(player.difficulty)}</span>
                 </div>
               </div>
               <div class="ranking-score">
@@ -451,7 +444,7 @@
       `;
     }
 
-    function getRankingMedalGameStyle(position) {
+    function getRankingMedal(position) {
       switch(position) {
         case 1: return '🥇';
         case 2: return '🥈';
@@ -460,12 +453,13 @@
       }
     }
 
-    function getPlayerRankGameStyle(ranking, playerName) {
+    function getPlayerRank(ranking, playerName) {
+      if (!ranking || !playerName) return null;
       const playerIndex = ranking.findIndex(player => player.playerName === playerName);
       return playerIndex !== -1 ? playerIndex + 1 : null;
     }
 
-    function getDifficultyNameGameStyle(difficulty) {
+    function getDifficultyName(difficulty) {
       const names = { 
         easy: 'Fácil', 
         medium: 'Médio', 
@@ -474,15 +468,17 @@
       return names[difficulty] || difficulty;
     }
 
-    function getLocalRankingFallbackGameStyle() {
+    function getLocalRankingFallback() {
       try {
-        return JSON.parse(localStorage.getItem('memoryGameGlobalRanking') || '[]');
+        const localRanking = JSON.parse(localStorage.getItem('memoryGameGlobalRanking') || '[]');
+        console.log('🔄 [INDEX] Fallback local:', localRanking.length, 'jogadores');
+        return localRanking;
       } catch {
         return [];
       }
     }
 
-    function showEmptyRankingGameStyle() {
+    function showEmptyRanking() {
       const emptyHTML = `
         <div class="ranking-overlay">
           <div class="ranking-card">
@@ -508,7 +504,7 @@
               <button onclick="closeRanking()" class="btn btn-ghost">
                 Fechar
               </button>
-              <button onclick="refreshRankingGameStyle()" class="btn btn-secondary">
+              <button onclick="refreshRanking()" class="btn btn-secondary">
                 🔄 Atualizar
               </button>
             </div>
@@ -520,7 +516,7 @@
       document.body.insertAdjacentHTML('beforeend', emptyHTML);
     }
 
-    async function refreshRankingGameStyle() {
+    async function refreshRanking() {
       closeRanking();
       setTimeout(async () => {
         await showGlobalRanking();
@@ -556,15 +552,6 @@
           `).join('')}
         </div>
       `;
-    }
-
-    function getDifficultyName(difficulty) {
-      const names = { 
-        easy: 'Fácil', 
-        medium: 'Médio', 
-        hard: 'Difícil' 
-      };
-      return names[difficulty] || difficulty;
     }
 
     function formatDate(dateString) {
